@@ -1,0 +1,39 @@
+[project]
+name = "eventradar-backend"
+version = "0.1.0"
+description = "EventRadar backend — FastAPI microservices"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "httpx>=0.28.0",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.8.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["services/events-service/tests", "services/api/tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["services/events-service", "services/api"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"services/*/tests/*" = ["S101"]
+"services/*/events_app/api/routes.py" = ["B008"]
+"services/*/gateway/api/routes.py" = ["B008"]
+"services/*/tests/conftest.py" = ["E402"]

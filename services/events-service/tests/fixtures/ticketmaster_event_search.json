@@ -1,0 +1,56 @@
+{
+  "name": "Sample Concert",
+  "type": "event",
+  "id": "vvG1VZKS5pr1qy",
+  "url": "https://www.ticketmaster.com/sample",
+  "dates": {
+    "start": {
+      "localDate": "2026-03-15",
+      "localTime": "20:00:00",
+      "dateTBD": false,
+      "dateTBA": false
+    },
+    "timezone": "America/New_York"
+  },
+  "classifications": [
+    {
+      "primary": true,
+      "segment": { "name": "Music" },
+      "genre": { "name": "Rock" },
+      "subGenre": { "name": "Alternative Rock" }
+    }
+  ],
+  "images": [
+    {
+      "ratio": "16_9",
+      "url": "https://example.com/image.jpg",
+      "width": 1024,
+      "height": 576
+    }
+  ],
+  "priceRanges": [
+    {
+      "type": "standard",
+      "currency": "USD",
+      "min": 45,
+      "max": 120
+    }
+  ],
+  "_embedded": {
+    "venues": [
+      {
+        "name": "Madison Square Garden",
+        "city": { "name": "New York" },
+        "state": { "stateCode": "NY" },
+        "location": { "latitude": "40.7505045", "longitude": "-73.9934387" },
+        "distance": 2.5,
+        "units": "miles"
+      }
+    ],
+    "attractions": [
+      { "name": "The Headliners" },
+      { "name": "Support Act" }
+    ]
+  },
+  "info": "A great night of live music."
+}
