@@ -1,0 +1,48 @@
+from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class CustomEventCreateRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=300)
+    short_title: str | None = Field(default=None, max_length=80)
+    description: str | None = None
+    venue: str = Field(min_length=1, max_length=300)
+    location: str = Field(min_length=1, max_length=300)
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+    category: str = Field(min_length=1, max_length=80)
+    category_color: str = Field(default="#7c3aed", max_length=16)
+    price_label: str | None = Field(default=None, max_length=64)
+    image_url: str | None = Field(default=None, max_length=2048)
+    tags: list[str] = Field(default_factory=list)
+    starts_at: datetime
+    ends_at: datetime | None = None
+    lineup: list[dict] = Field(default_factory=list)
+    tickets: list[dict] = Field(default_factory=list)
+    publish: bool = False
+
+
+class CustomEventResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    owner_user_id: UUID
+    title: str
+    short_title: str | None
+    description: str | None
+    venue: str
+    location: str
+    lat: float
+    lng: float
+    category: str
+    category_color: str
+    price_label: str | None
+    image_url: str | None
+    tags: list
+    starts_at: datetime
+    ends_at: datetime | None
+    status: str
+    lineup: list
+    tickets: list

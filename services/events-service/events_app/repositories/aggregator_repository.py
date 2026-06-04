@@ -1,9 +1,12 @@
+import logging
 from datetime import date
 
 from events_app.domain.models import Category, Event
 from events_app.providers.categories import DEFAULT_CATEGORIES
 from events_app.providers.id_registry import EventIdRegistry
 from events_app.providers.protocol import EventProvider, ProviderSearchParams
+
+logger = logging.getLogger(__name__)
 
 
 class AggregatorEventRepository:
@@ -41,13 +44,28 @@ class AggregatorEventRepository:
         seen: set[int] = set()
 
         for provider in self._providers:
-            for event in provider.search_events(params):
+            try:
+                provider_events = provider.search_events(params)
+            except Exception:
+                logger.exception(
+                    "Provider %s failed during search; skipping its results",
+                    provider.name,
+                )
+                continue
+            for event in provider_events:
                 if event.id in seen:
                     continue
                 seen.add(event.id)
                 merged.append(event)
 
-        merged = _apply_client_filters(merged, category=category, location=location, query=query)
+        merged = _apply_client_filters(
+            merged,
+            category=category,
+            location=location,
+            query=query,
+            date_from=date_from,
+            date_to=date_to,
+        )
         return _sort_events(merged, sort)
 
     def get_event(self, event_id: int) -> Event | None:
@@ -59,7 +77,15 @@ class AggregatorEventRepository:
                 return provider.get_event(external_id)
 
         for provider in self._providers:
-            for event in provider.search_events(ProviderSearchParams()):
+            try:
+                provider_events = provider.search_events(ProviderSearchParams())
+            except Exception:
+                logger.exception(
+                    "Provider %s failed during get_event fallback search",
+                    provider.name,
+                )
+                continue
+            for event in provider_events:
                 if event.id == event_id:
                     return event
 
@@ -75,8 +101,15 @@ def _apply_client_filters(
     category: str | None,
     location: str | None,
     query: str | None,
+    date_from: date | None = None,
+    date_to: date | None = None,
 ) -> list[Event]:
     results = events
+
+    if date_from:
+        results = [event for event in results if event.event_date >= date_from]
+    if date_to:
+        results = [event for event in results if event.event_date <= date_to]
 
     if category and category != "All Events":
         results = [event for event in results if event.category == category]

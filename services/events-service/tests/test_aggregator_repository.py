@@ -7,12 +7,14 @@ from events_app.repositories.aggregator_repository import AggregatorEventReposit
 
 
 class _StubProvider:
-    name = "stub"
-
-    def __init__(self, events: list[Event]) -> None:
+    def __init__(self, events: list[Event], *, name: str = "stub", fail: bool = False) -> None:
+        self.name = name
         self._events = events
+        self._fail = fail
 
     def search_events(self, params: ProviderSearchParams) -> list[Event]:
+        if self._fail:
+            raise RuntimeError("provider unavailable")
         return list(self._events)
 
     def get_event(self, external_id: str) -> Event | None:
@@ -73,6 +75,19 @@ def test_aggregator_resolves_get_event_via_registry():
 
     assert found is not None
     assert found.title == "Registered"
+
+
+def test_aggregator_continues_when_one_provider_fails():
+    registry = EventIdRegistry()
+    ok_event = _sample_event(101, "Ticketmaster Event")
+    failing = _StubProvider([], name="eventbrite", fail=True)
+    working = _StubProvider([ok_event], name="ticketmaster")
+
+    repo = AggregatorEventRepository([failing, working], registry)
+    results = repo.list_events()
+
+    assert len(results) == 1
+    assert results[0].title == "Ticketmaster Event"
 
 
 def test_public_id_is_deterministic():

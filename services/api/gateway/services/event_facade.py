@@ -53,12 +53,16 @@ class EventFacade:
         *,
         category: str | None = None,
         location: str | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
         lat: float | None = None,
         lng: float | None = None,
     ) -> list[MapPinDTO]:
         raw_events = await self._client.list_events(
             category=category,
             location=location,
+            date_from=date_from,
+            date_to=date_to,
             lat=lat,
             lng=lng,
         )

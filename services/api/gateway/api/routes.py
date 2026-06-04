@@ -3,6 +3,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query
 from httpx import HTTPStatusError
 
+from gateway.api.date_validation import validate_date_range
 from gateway.dto.events import (
     CategoryDTO,
     EventDetailsDTO,
@@ -32,6 +33,7 @@ async def list_events(
     lng: float | None = Query(default=None, description="Search center longitude"),
     facade: EventFacade = Depends(get_facade),
 ) -> EventsListResponseDTO:
+    validate_date_range(date_from, date_to)
     try:
         return await facade.list_events(
             category=category,
@@ -64,14 +66,19 @@ async def get_event(
 async def list_map_pins(
     category: str | None = Query(default=None),
     location: str | None = Query(default=None),
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
     lat: float | None = Query(default=None),
     lng: float | None = Query(default=None),
     facade: EventFacade = Depends(get_facade),
 ) -> list[MapPinDTO]:
+    validate_date_range(date_from, date_to)
     try:
         return await facade.list_map_pins(
             category=category,
             location=location,
+            date_from=date_from,
+            date_to=date_to,
             lat=lat,
             lng=lng,
         )

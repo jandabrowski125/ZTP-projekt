@@ -9,13 +9,14 @@ RUN pip install --no-cache-dir \
     "fastapi>=0.115.0" \
     "uvicorn[standard]>=0.32.0" \
     "httpx>=0.28.0" \
-    "pydantic>=2.10.0" \
+    "pydantic[email]>=2.10.0" \
     "pydantic-settings>=2.6.0"
 
 ENV PYTHONPATH=/app/services/api
 ENV API_HOST=0.0.0.0
 ENV API_PORT=8000
 ENV EVENTS_SERVICE_URL=http://events-service:8001
+ENV USER_SERVICE_URL=http://user-service:8002
 
 EXPOSE 8000
 

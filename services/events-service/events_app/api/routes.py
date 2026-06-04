@@ -2,6 +2,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from events_app.api.date_validation import validate_date_range
 from events_app.schemas.internal import CategorySchema, EventSchema
 from events_app.services.event_service import EventService
 
@@ -28,6 +29,7 @@ def list_events(
     lng: float | None = Query(default=None, description="Search center longitude"),
     service: EventService = Depends(get_event_service),
 ) -> list[EventSchema]:
+    validate_date_range(date_from, date_to)
     events = service.list_events(
         category=category,
         location=location,

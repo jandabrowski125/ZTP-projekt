@@ -1,4 +1,22 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: eventradar-postgres
+    environment:
+      POSTGRES_USER: eventradar
+      POSTGRES_PASSWORD: eventradar
+      POSTGRES_DB: eventradar
+    ports:
+      - "5432:5432"
+    volumes:
+      - eventradar_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eventradar -d eventradar"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   events-service:
     build:
       context: .
@@ -20,6 +38,38 @@ services:
       start_period: 5s
     restart: unless-stopped
 
+  user-service:
+    build:
+      context: .
+      dockerfile: services/user-service/Dockerfile
+    image: eventradar-user-service:local
+    container_name: eventradar-user-service
+    env_file:
+      - .env
+    expose:
+      - "8002"
+    environment:
+      USER_SERVICE_HOST: "0.0.0.0"
+      USER_SERVICE_PORT: "8002"
+      DATABASE_URL: "postgresql+psycopg://eventradar:eventradar@postgres:5432/eventradar"
+      JWT_SECRET: "${JWT_SECRET:-dev-change-me}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; r=urllib.request.urlopen('http://127.0.0.1:8002/health'); assert r.status==200",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
   api:
     build:
       context: .
@@ -32,9 +82,12 @@ services:
       API_HOST: "0.0.0.0"
       API_PORT: "8000"
       EVENTS_SERVICE_URL: "http://events-service:8001"
+      USER_SERVICE_URL: "http://user-service:8002"
       CORS_ORIGINS: "http://localhost:5173,http://localhost:5678,http://127.0.0.1:5173,http://127.0.0.1:5678"
     depends_on:
       events-service:
+        condition: service_healthy
+      user-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
@@ -43,3 +96,6 @@ services:
       retries: 3
       start_period: 10s
     restart: unless-stopped
+
+volumes:
+  eventradar_pg:

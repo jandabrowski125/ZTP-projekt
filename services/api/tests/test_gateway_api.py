@@ -1,3 +1,4 @@
+from datetime import date
 from unittest.mock import AsyncMock
 
 import pytest
@@ -108,6 +109,46 @@ def test_map_pins(client: TestClient):
     response = client.get("/api/v1/map/pins")
     assert response.status_code == 200
     assert response.json()[0]["category"] == "music"
+
+
+def test_map_pins_forwards_date_params(client: TestClient, mock_facade: EventFacade):
+    start = date.today()
+    end = start.replace(day=min(start.day + 7, 28))
+    response = client.get(
+        f"/api/v1/map/pins?date_from={start.isoformat()}&date_to={end.isoformat()}"
+    )
+    assert response.status_code == 200
+    mock_facade.list_map_pins.assert_called_once_with(
+        category=None,
+        location=None,
+        lat=None,
+        lng=None,
+        date_from=start,
+        date_to=end,
+    )
+
+
+def test_list_events_rejects_invalid_date_range(client: TestClient):
+    response = client.get("/api/v1/events?date_from=2026-06-10&date_to=2026-06-02")
+    assert response.status_code == 400
+
+
+def test_list_events_rejects_past_date_from(client: TestClient):
+    response = client.get("/api/v1/events?date_from=2020-01-01&date_to=2026-06-02")
+    assert response.status_code == 400
+    assert "before today" in response.json()["detail"]
+
+
+def test_list_events_accepts_same_day_range(client: TestClient):
+    today = date.today().isoformat()
+    response = client.get(f"/api/v1/events?date_from={today}&date_to={today}")
+    assert response.status_code == 200
+
+
+def test_map_pins_rejects_past_date_from(client: TestClient):
+    response = client.get("/api/v1/map/pins?date_from=2020-01-01&date_to=2026-06-02")
+    assert response.status_code == 400
+    assert "before today" in response.json()["detail"]
 
 
 def test_categories(client: TestClient):

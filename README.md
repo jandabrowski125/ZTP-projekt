@@ -7,11 +7,21 @@ Backend REST API for [EventRadar](../Tpfeventradar/) (FastAPI + Uvicorn), design
 | Service | Port (host) | Exposure | Role |
 |---------|-------------|----------|------|
 | **api** | `8000` | Public | REST API for the frontend (`/api/v1/*`), CORS, camelCase DTOs |
-| **events-service** | — (internal `8001`) | Docker network only | Aggregates external providers (Ticketmaster, …) |
+| **events-service** | — (internal `8001`) | Docker network only | Aggregates external providers (Ticketmaster, EventBrite, …) |
+| **user-service** | — (internal `8002`) | Docker network only | Users, favorites, past events, custom venue events (PostgreSQL) |
+| **postgres** | `5432` (local dev) | Optional host port | PostgreSQL 16 — **use managed DB in production** (see [docs/DATABASE.md](docs/DATABASE.md)) |
 
 ```
-Frontend  →  api:8000  →  events-service:8001  →  Aggregator → Ticketmaster Discovery API
+Frontend  →  api:8000  →  events-service:8001  →  Aggregator → Ticketmaster / EventBrite APIs
+                       →  user-service:8002   →  PostgreSQL (cloud or local container)
 ```
+
+### Database milestone
+
+- **Engine:** PostgreSQL (relational users + favorites; JSONB for preferences/lineup).
+- **Cloud-first:** set `DATABASE_URL` to your managed instance; local Compose includes `postgres` for development only.
+- **Migrations:** `alembic -c services/user-service/alembic.ini upgrade head` (also runs on `user-service` container start).
+- Full schema and rationale: **[docs/DATABASE.md](docs/DATABASE.md)**.
 
 ## Prerequisites
 
@@ -22,14 +32,19 @@ Frontend  →  api:8000  →  events-service:8001  →  Aggregator → Ticketmas
 
 1. Copy `.env.example` → `.env`.
 2. Set `TICKETMASTER_API_KEY` from [Ticketmaster Developer Portal](https://developer.ticketmaster.com/).
-3. Default search/map center (Kraków, Rynek Główny):
+3. (Optional) Set `EVENTBRITE_TOKEN` and **`EVENTBRITE_ORGANIZATION_ID`** from [EventBrite Platform](https://www.eventbrite.com/platform/api) to merge EventBrite events (org id is required — public geo search was removed). At least one provider key is required.
+4. Default search/map center (Kraków, Rynek Główny):
 
 ```env
 DEFAULT_COORD_LAT=50.046943
 DEFAULT_COORD_LNG=19.997153
 ```
 
-Provider-specific coordinates inherit from `DEFAULT_COORD_*` when `TICKETMASTER_LAT` / `TICKETMASTER_LNG` are omitted. The public API accepts optional `lat` & `lng` query params for map-based search.
+Provider-specific coordinates inherit from `DEFAULT_COORD_*` when `TICKETMASTER_LAT` / `TICKETMASTER_LNG` (or `EVENTBRITE_LAT` / `EVENTBRITE_LNG`) are omitted. The public API accepts optional `lat` & `lng` query params for map-based search.
+
+### EventBrite limitation
+
+EventBrite’s public **event search** endpoint (`GET /v3/events/search/`) was [deprecated in 2020](https://www.eventbrite.com/platform/api) and now returns **HTTP 404** or **406**. Set **`EVENTBRITE_ORGANIZATION_ID`** (with `EVENTBRITE_TOKEN`) so events-service calls `GET /v3/organizations/{id}/events/` and filters by venue coordinates within `EVENTBRITE_RADIUS` / `EVENTBRITE_UNIT`. Without an org id, EventBrite contributes no rows (Ticketmaster still loads). Stale cache is served on HTTP 429. `GET /v3/events/{id}/` works for detail lookup by external id.
 
 ## Quick start (Docker)
 
@@ -72,8 +87,11 @@ Set the API base URL in the frontend (e.g. `VITE_API_URL=http://localhost:8000`)
 |----------|-------------|
 | `GET /api/v1/events` | List events (`category`, `location`, `date_from`, `date_to`, `q`, `sort`, `lat`, `lng`) |
 | `GET /api/v1/events/{id}` | Event details (+ `description`, `lineup`, `tickets`) |
-| `GET /api/v1/map/pins` | Map pins (`MapPin` shape) |
+| `GET /api/v1/map/pins` | Map pins (`category`, `location`, `date_from`, `date_to`, `lat`, `lng`) |
 | `GET /api/v1/categories` | Category chips |
+| `POST /api/v1/auth/register` | Create account (email, password, profile) |
+| `POST /api/v1/auth/login` | JWT access token |
+| `GET /api/v1/users/me` | Current user profile (`Authorization: Bearer …`) |
 
 JSON uses **camelCase** fields aligned with `EventData` in `Tpfeventradar/frontend/src/app/components/dashboard/events.ts`.
 
@@ -99,6 +117,8 @@ pip install -e ".[dev]"
 pytest
 ```
 
+User-service integration tests need PostgreSQL (`docker compose up -d postgres` or set `TEST_DATABASE_URL`). Security tests run without a database.
+
 ## Linting
 
 ```bash
@@ -117,13 +137,23 @@ ruff format services/
 
 | Variable | Service | Default |
 |----------|---------|---------|
-| `TICKETMASTER_API_KEY` | events-service | *(required)* |
+| `TICKETMASTER_API_KEY` | events-service | Ticketmaster Discovery (one of TM or EB required) |
+| `EVENTBRITE_TOKEN` | events-service | EventBrite private token (optional second provider) |
+| `EVENTBRITE_ORGANIZATION_ID` | events-service | **required** for EventBrite list data — org events API + client-side geo filter |
+| `EVENTBRITE_LAT` / `EVENTBRITE_LNG` | events-service | inherit `DEFAULT_COORD_*` |
+| `EVENTBRITE_RADIUS` | events-service | `50` — haversine radius for org-event venue filter |
+| `EVENTBRITE_UNIT` | events-service | `km` or `miles` (converts radius for venue filter) |
+| `EVENTBRITE_CACHE_TTL_SECONDS` | events-service | `60` — shared cache for parallel `/events` + `/map/pins` |
+| `EVENTBRITE_PAGE_SIZE` | events-service | `50` (API max 50 per page) |
 | `DEFAULT_COORD_LAT` / `DEFAULT_COORD_LNG` | events-service | Kraków (50.046943, 19.997153) |
 | `TICKETMASTER_LAT` / `TICKETMASTER_LNG` | events-service | inherit `DEFAULT_COORD_*` |
 | `TICKETMASTER_RADIUS` | events-service | `50` |
 | `TICKETMASTER_UNIT` | events-service | `km` or `miles` (API rejects `kilometers`) |
 | `TICKETMASTER_COUNTRY_CODE` | events-service | `PL` — omit (empty) for global search; not related to HTTP 429 |
 | `TICKETMASTER_CACHE_TTL_SECONDS` | events-service | `60` — caches TM search; avoids 429 when `/events` and `/map/pins` run together |
+| `DATABASE_URL` | user-service | PostgreSQL connection URL (cloud in prod) |
+| `JWT_SECRET` | user-service | Signing key for access tokens — **change in production** |
+| `USER_SERVICE_URL` | api | `http://user-service:8002` |
 | `EVENTS_SERVICE_URL` | api | `http://events-service:8001` |
 | `CORS_ORIGINS` | api | `http://localhost:5173,http://localhost:5678,...` |
 | `API_PORT` | api | `8000` |

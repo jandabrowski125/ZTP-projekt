@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from gateway.api.routes import router
+from gateway.api.user_routes import router as user_router
 from gateway.clients.events_client import EventsServiceClient
 from gateway.config import settings
 from gateway.services.event_facade import EventFacade
@@ -25,6 +26,7 @@ app.add_middleware(
 )
 
 app.include_router(router)
+app.include_router(user_router)
 
 
 @app.get("/health")

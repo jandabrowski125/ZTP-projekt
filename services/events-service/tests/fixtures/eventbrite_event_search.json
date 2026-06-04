@@ -1,0 +1,58 @@
+{
+  "id": "1234567890123",
+  "name": {
+    "text": "Kraków Jazz Night",
+    "html": "<p>Kraków Jazz Night</p>"
+  },
+  "description": {
+    "text": "An evening of live jazz in the old town.",
+    "html": "<p>An evening of live jazz in the old town.</p>"
+  },
+  "url": "https://www.eventbrite.com/e/krakow-jazz-night",
+  "start": {
+    "timezone": "Europe/Warsaw",
+    "local": "2026-04-10T20:00:00",
+    "utc": "2026-04-10T18:00:00Z"
+  },
+  "end": {
+    "timezone": "Europe/Warsaw",
+    "local": "2026-04-10T23:00:00",
+    "utc": "2026-04-10T21:00:00Z"
+  },
+  "is_free": false,
+  "logo": {
+    "url": "https://example.com/eb-logo.jpg"
+  },
+  "category": {
+    "id": "103",
+    "name": "Music",
+    "short_name": "Music"
+  },
+  "subcategory": {
+    "id": "3001",
+    "name": "Jazz"
+  },
+  "venue": {
+    "id": "987654",
+    "name": "Stara Zajezdnia",
+    "address": {
+      "address_1": "3 Limanowskiego",
+      "city": "Kraków",
+      "region": "małopolskie",
+      "postal_code": "30-543",
+      "country": "PL",
+      "latitude": "50.062",
+      "longitude": "19.937"
+    }
+  },
+  "ticket_classes": [
+    {
+      "name": "General Admission",
+      "free": false,
+      "cost": {
+        "currency": "PLN",
+        "major_value": "89.00"
+      }
+    }
+  ]
+}
