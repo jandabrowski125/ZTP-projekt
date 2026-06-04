@@ -231,3 +231,20 @@ def list_my_custom_events(
     repo = CustomEventRepository(db)
     events = repo.list_for_owner(current_user.id)
     return [CustomEventResponse.model_validate(event) for event in events]
+
+
+@router.get("/custom-events/published", response_model=list[CustomEventResponse])
+def list_published_custom_events(db: Annotated[Session, Depends(get_db)]) -> list[CustomEventResponse]:
+    """Public/internal endpoint returning published custom events for aggregation."""
+    repo = CustomEventRepository(db)
+    events = repo.list_published()
+    return [CustomEventResponse.model_validate(event) for event in events]
+
+
+@router.get("/custom-events/{event_id}", response_model=CustomEventResponse)
+def get_custom_event(event_id: uuid.UUID, db: Annotated[Session, Depends(get_db)]) -> CustomEventResponse:
+    repo = CustomEventRepository(db)
+    event = repo.get(event_id)
+    if event is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+    return CustomEventResponse.model_validate(event)

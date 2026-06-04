@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     eventbrite_page_size: int = 50
     eventbrite_base_url: str = "https://www.eventbriteapi.com/v3"
     eventbrite_cache_ttl_seconds: float = 60.0
+    # URL to internal user service (used to fetch published custom events)
+    user_service_url: str = "http://user-service:8002"
+    # When true, include published custom events from user-service in aggregation.
+    user_custom_events_enabled: bool = False
 
     @property
     def ticketmaster_search_lat(self) -> float:
