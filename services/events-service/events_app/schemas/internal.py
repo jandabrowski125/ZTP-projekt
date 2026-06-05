@@ -49,6 +49,8 @@ class EventSchema(BaseModel):
     description: str
     lineup: list[LineupArtistSchema] = Field(default_factory=list)
     tickets: list[TicketSchema] = Field(default_factory=list)
+    is_community_event: bool = False
+    created_by: str | None = None
 
 
 class CategorySchema(BaseModel):

@@ -16,6 +16,7 @@ class EventRepository(Protocol):
         sort: str = "date_asc",
         lat: float | None = None,
         lng: float | None = None,
+        include_community: bool = False,
     ) -> list[Event]: ...
 
     def get_event(self, event_id: int) -> Event | None: ...

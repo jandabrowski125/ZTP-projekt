@@ -32,6 +32,7 @@ async def list_events(
     sort: str = Query(default="date_asc", pattern="^(date_asc|date_desc|price_asc)$"),
     lat: float | None = Query(default=None, description="Search center latitude"),
     lng: float | None = Query(default=None, description="Search center longitude"),
+    include_community: bool = Query(default=False, alias="includeCommunity"),
     facade: EventFacade = Depends(get_facade),
 ) -> EventsListResponseDTO:
     validate_date_range(date_from, date_to)
@@ -45,6 +46,7 @@ async def list_events(
             sort=sort,
             lat=lat,
             lng=lng,
+            include_community=include_community,
         )
     except HTTPStatusError as exc:
         raise upstream_http_error(exc) from exc
@@ -69,6 +71,7 @@ async def list_map_pins(
     date_to: date | None = Query(default=None),
     lat: float | None = Query(default=None),
     lng: float | None = Query(default=None),
+    include_community: bool = Query(default=False, alias="includeCommunity"),
     facade: EventFacade = Depends(get_facade),
 ) -> list[MapPinDTO]:
     validate_date_range(date_from, date_to)
@@ -80,6 +83,7 @@ async def list_map_pins(
             date_to=date_to,
             lat=lat,
             lng=lng,
+            include_community=include_community,
         )
     except HTTPStatusError as exc:
         raise upstream_http_error(exc) from exc

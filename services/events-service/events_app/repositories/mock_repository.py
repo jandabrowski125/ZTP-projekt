@@ -211,8 +211,9 @@ class MockEventRepository(EventRepository):
         sort: str = "date_asc",
         lat: float | None = None,
         lng: float | None = None,
+        include_community: bool = False,
     ) -> list[Event]:
-        del lat, lng
+        del lat, lng, include_community
         results = list(self._events)
 
         if category and category != "All Events":

@@ -38,6 +38,8 @@ def to_event_details_dto(raw: dict[str, Any]) -> EventDetailsDTO:
         description=raw["description"],
         lineup=[_lineup_item(item) for item in raw.get("lineup", [])],
         tickets=[_ticket_item(item) for item in raw.get("tickets", [])],
+        isCommunityEvent=raw.get("is_community_event", False),
+        createdBy=raw.get("created_by"),
     )
 
 
@@ -85,6 +87,7 @@ def to_custom_event_dto(raw: dict[str, Any]) -> CustomEventResponseDTO:
     return CustomEventResponseDTO(
         id=str(raw["id"]),
         ownerUserId=str(raw["owner_user_id"]),
+        ownerUsername=raw.get("owner_username"),
         title=raw["title"],
         shortTitle=raw.get("short_title"),
         description=raw.get("description"),

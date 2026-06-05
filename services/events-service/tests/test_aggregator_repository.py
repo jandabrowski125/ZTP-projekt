@@ -90,5 +90,53 @@ def test_aggregator_continues_when_one_provider_fails():
     assert results[0].title == "Ticketmaster Event"
 
 
+def test_aggregator_excludes_custom_provider_when_community_disabled():
+    registry = EventIdRegistry()
+    custom_event = _sample_event(301, "Community Meetup")
+    custom_event = Event(
+        id=custom_event.id,
+        title=custom_event.title,
+        short_title=custom_event.short_title,
+        month=custom_event.month,
+        day=custom_event.day,
+        time=custom_event.time,
+        day_label=custom_event.day_label,
+        venue=custom_event.venue,
+        location=custom_event.location,
+        distance=custom_event.distance,
+        category=custom_event.category,
+        category_color=custom_event.category_color,
+        price=custom_event.price,
+        image=custom_event.image,
+        tags=custom_event.tags,
+        lat=custom_event.lat,
+        lng=custom_event.lng,
+        map_pin_category=custom_event.map_pin_category,
+        featured=custom_event.featured,
+        event_date=custom_event.event_date,
+        description=custom_event.description,
+        lineup=custom_event.lineup,
+        tickets=custom_event.tickets,
+        is_community_event=True,
+        created_by="alice",
+    )
+    ticketmaster_event = _sample_event(101, "Ticketmaster Event")
+
+    repo = AggregatorEventRepository(
+        [
+            _StubProvider([custom_event], name="custom"),
+            _StubProvider([ticketmaster_event], name="ticketmaster"),
+        ],
+        registry,
+    )
+
+    without = repo.list_events(include_community=False)
+    assert len(without) == 1
+    assert without[0].title == "Ticketmaster Event"
+
+    with_community = repo.list_events(include_community=True)
+    assert len(with_community) == 2
+
+
 def test_public_id_is_deterministic():
     assert public_id_for("ticketmaster", "vvG1") == public_id_for("ticketmaster", "vvG1")

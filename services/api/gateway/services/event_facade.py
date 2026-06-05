@@ -30,6 +30,7 @@ class EventFacade:
         sort: str = "date_asc",
         lat: float | None = None,
         lng: float | None = None,
+        include_community: bool = False,
     ) -> EventsListResponseDTO:
         raw_events = await self._client.list_events(
             category=category,
@@ -40,6 +41,7 @@ class EventFacade:
             sort=sort,
             lat=lat,
             lng=lng,
+            include_community=include_community,
         )
         items = [to_event_data_dto(item) for item in raw_events]
         return EventsListResponseDTO(items=items, total=len(items))
@@ -57,6 +59,7 @@ class EventFacade:
         date_to: date | None = None,
         lat: float | None = None,
         lng: float | None = None,
+        include_community: bool = False,
     ) -> list[MapPinDTO]:
         raw_events = await self._client.list_events(
             category=category,
@@ -65,6 +68,7 @@ class EventFacade:
             date_to=date_to,
             lat=lat,
             lng=lng,
+            include_community=include_community,
         )
         return [to_map_pin_dto(item) for item in raw_events]
 

@@ -9,7 +9,11 @@ from user_app.db.models import SavedEventListType, User
 from user_app.db.session import get_db
 from user_app.repositories.custom_event_repository import CustomEventRepository
 from user_app.repositories.user_repository import UserAlreadyExistsError, UserRepository
-from user_app.schemas.custom_events import CustomEventCreateRequest, CustomEventResponse
+from user_app.schemas.custom_events import (
+    CustomEventCreateRequest,
+    CustomEventResponse,
+    CustomEventUpdateRequest,
+)
 from user_app.schemas.users import (
     LoginRequest,
     RegisterRequest,
@@ -23,6 +27,31 @@ from user_app.schemas.users import (
 from user_app.security import create_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/internal/v1")
+
+
+def _custom_event_response(event) -> CustomEventResponse:
+    return CustomEventResponse(
+        id=event.id,
+        owner_user_id=event.owner_user_id,
+        owner_username=event.owner.username if event.owner else None,
+        title=event.title,
+        short_title=event.short_title,
+        description=event.description,
+        venue=event.venue,
+        location=event.location,
+        lat=event.lat,
+        lng=event.lng,
+        category=event.category,
+        category_color=event.category_color,
+        price_label=event.price_label,
+        image_url=event.image_url,
+        tags=event.tags,
+        starts_at=event.starts_at,
+        ends_at=event.ends_at,
+        status=event.status.value if hasattr(event.status, "value") else str(event.status),
+        lineup=event.lineup,
+        tickets=event.tickets,
+    )
 
 
 def _profile_response(user: User) -> UserProfileResponse:
@@ -220,7 +249,7 @@ def create_custom_event(
         tickets=body.tickets,
         publish=body.publish,
     )
-    return CustomEventResponse.model_validate(event)
+    return _custom_event_response(event)
 
 
 @router.get("/custom-events/mine", response_model=list[CustomEventResponse])
@@ -230,7 +259,7 @@ def list_my_custom_events(
 ) -> list[CustomEventResponse]:
     repo = CustomEventRepository(db)
     events = repo.list_for_owner(current_user.id)
-    return [CustomEventResponse.model_validate(event) for event in events]
+    return [_custom_event_response(event) for event in events]
 
 
 @router.get("/custom-events/published", response_model=list[CustomEventResponse])
@@ -238,7 +267,7 @@ def list_published_custom_events(db: Annotated[Session, Depends(get_db)]) -> lis
     """Public/internal endpoint returning published custom events for aggregation."""
     repo = CustomEventRepository(db)
     events = repo.list_published()
-    return [CustomEventResponse.model_validate(event) for event in events]
+    return [_custom_event_response(event) for event in events]
 
 
 @router.get("/custom-events/{event_id}", response_model=CustomEventResponse)
@@ -247,4 +276,30 @@ def get_custom_event(event_id: uuid.UUID, db: Annotated[Session, Depends(get_db)
     event = repo.get(event_id)
     if event is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-    return CustomEventResponse.model_validate(event)
+    return _custom_event_response(event)
+
+
+@router.patch("/custom-events/{event_id}", response_model=CustomEventResponse)
+def update_custom_event(
+    event_id: uuid.UUID,
+    body: CustomEventUpdateRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> CustomEventResponse:
+    repo = CustomEventRepository(db)
+    payload = body.model_dump(exclude_unset=True)
+    event = repo.update(event_id, owner_user_id=current_user.id, **payload)
+    if event is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+    return _custom_event_response(event)
+
+
+@router.delete("/custom-events/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_custom_event(
+    event_id: uuid.UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> None:
+    repo = CustomEventRepository(db)
+    if not repo.delete(event_id, owner_user_id=current_user.id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
