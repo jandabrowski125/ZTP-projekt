@@ -2,11 +2,26 @@ from typing import Any
 
 import httpx
 
+from eventradar_common.internal_auth import internal_auth_headers
+
 
 class UserServiceClient:
-    def __init__(self, base_url: str, *, timeout: float = 15.0) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        *,
+        timeout: float = 15.0,
+        internal_token: str = "",
+    ) -> None:
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
+        self._internal_headers = internal_auth_headers(internal_token)
+
+    def _merge_headers(self, headers: dict[str, str] | None = None) -> dict[str, str]:
+        merged = dict(self._internal_headers)
+        if headers:
+            merged.update(headers)
+        return merged
 
     async def _request(
         self,
@@ -17,7 +32,12 @@ class UserServiceClient:
         headers: dict[str, str] | None = None,
     ) -> httpx.Response:
         async with httpx.AsyncClient(base_url=self._base_url, timeout=self._timeout) as client:
-            return await client.request(method, path, json=json, headers=headers)
+            return await client.request(
+                method,
+                path,
+                json=json,
+                headers=self._merge_headers(headers),
+            )
 
     async def register(self, payload: dict[str, Any]) -> dict[str, Any]:
         response = await self._request("POST", "/internal/v1/auth/register", json=payload)

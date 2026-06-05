@@ -9,18 +9,18 @@ Backend REST API for [EventRadar](../Tpfeventradar/) (FastAPI + Uvicorn), design
 | **api** | `8000` | Public | REST API for the frontend (`/api/v1/*`), CORS, camelCase DTOs |
 | **events-service** | — (internal `8001`) | Docker network only | Aggregates external providers (Ticketmaster, EventBrite, …) |
 | **user-service** | — (internal `8002`) | Docker network only | Users, favorites, past events, custom venue events (PostgreSQL) |
-| **postgres** | `5432` (local dev) | Optional host port | PostgreSQL 16 — **use managed DB in production** (see [docs/DATABASE.md](docs/DATABASE.md)) |
+| **postgres** | `5432` (local dev only) | Dev: host port | PostgreSQL 16 — container on VPS in production (`docker-compose.hetzner.yml`) |
 
 ```
 Frontend  →  api:8000  →  events-service:8001  →  Aggregator → Ticketmaster / EventBrite APIs
-                       →  user-service:8002   →  PostgreSQL (cloud or local container)
+                       →  user-service:8002   →  PostgreSQL (Docker container)
 ```
 
 ### Database milestone
 
 - **Engine:** PostgreSQL (relational users + favorites; JSONB for preferences/lineup).
-- **Cloud-first:** set `DATABASE_URL` to your managed instance; local Compose includes `postgres` for development only.
-- **Migrations:** `alembic -c services/user-service/alembic.ini upgrade head` (also runs on `user-service` container start).
+- **Production:** Postgres container on Hetzner VPS (`docker-compose.hetzner.yml`). Local dev: `docker compose up` includes `postgres`.
+- **Migrations:** `user_app.db.bootstrap` on `user-service` container start (Alembic).
 - Full schema and rationale: **[docs/DATABASE.md](docs/DATABASE.md)**.
 
 ## Prerequisites
@@ -54,10 +54,19 @@ From this directory (`ZTP-projekt/`):
 docker compose up --build
 ```
 
-- Public API: http://localhost:8000/docs  
+- Public API: http://localhost:8000/docs (HTTP Basic auth when `DOCS_PASSWORD` is set)  
 - Health: http://localhost:8000/health  
 
 `events-service` is not published on the host — only `api` is reachable from the frontend.
+
+### Deployment
+
+| Environment | Command |
+|-------------|---------|
+| **Local** | `docker compose up --build` |
+| **Production** | [docs/DEPLOYMENT_HETZNER.md](docs/DEPLOYMENT_HETZNER.md) — Hetzner VPS + Cloudflare Pages |
+
+Security model and env vars: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Local development (without Docker)
 

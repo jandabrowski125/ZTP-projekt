@@ -13,7 +13,10 @@ router = APIRouter(prefix="/api/v1")
 
 
 def get_user_client() -> UserServiceClient:
-    return UserServiceClient(settings.user_service_url)
+    return UserServiceClient(
+        settings.user_service_url,
+        internal_token=settings.internal_service_token,
+    )
 
 
 class RegisterBody(BaseModel):
@@ -45,7 +48,10 @@ def _proxy_error(exc: HTTPStatusError) -> HTTPException:
 
 
 def _token_dto(raw: dict) -> TokenResponseDTO:
-    return TokenResponseDTO(accessToken=raw["access_token"], tokenType=raw.get("token_type", "bearer"))
+    return TokenResponseDTO(
+        accessToken=raw["access_token"],
+        tokenType=raw.get("token_type", "bearer"),
+    )
 
 
 @router.post("/auth/register", response_model=TokenResponseDTO, response_model_by_alias=True)
