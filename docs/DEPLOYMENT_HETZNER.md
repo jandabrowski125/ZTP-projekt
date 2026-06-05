@@ -138,23 +138,24 @@ curl -s https://api.twoja-domena.pl/health
 
 ---
 
-## 5. Cloudflare Pages — frontend
+## 5. Cloudflare — frontend (Workers Builds)
 
-Repo: **Tpfeventradar** (osobne od backendu).
+Repo: **Tpfeventradar** (osobne od backendu). Frontend to statyczny Vite SPA z `frontend/wrangler.toml` (assets-only, bez Worker script).
 
 ### W Cloudflare Dashboard
 
-1. **Workers & Pages** → **Create** → **Pages** → **Connect to Git**.
+1. **Workers & Pages** → **Create** → **Worker** → **Connect to Git**.
 2. Wybierz repo `Tpfeventradar`.
 3. Ustawienia buildu:
 
 | Pole | Wartość |
 |------|---------|
-| Root directory | `frontend` |
-| Build command | `bun install && bun run build` *(lub `npm ci && npm run build`)* |
-| Build output | `dist` |
+| Root directory (Path) | `frontend` |
+| Build command | `npm run build:cf` |
+| Deploy command | `npx wrangler deploy` |
+| Non-production branch deploy command | `npx wrangler versions upload` |
 
-4. **Environment variables** (Production):
+4. **Environment variables** (Production + Preview):
 
 | Zmienna | Wartość |
 |---------|---------|
@@ -168,7 +169,7 @@ Frontend woła API pod `VITE_API_URL/api/v1/...` (patrz `frontend/src/app/api/co
 
 ### SPA routing
 
-Plik `frontend/public/_redirects` (`/* /index.html 200`) trafia do `dist/` i naprawia odświeżanie na `/login`, `/map` itd.
+`wrangler.toml` ustawia `not_found_handling = "single-page-application"` — odświeżanie na `/login`, `/map` itd. działa bez `_redirects` (ten plik jest tylko dla Cloudflare Pages i psuje deploy na Workers).
 
 ### Zaktualizuj CORS na backendzie
 

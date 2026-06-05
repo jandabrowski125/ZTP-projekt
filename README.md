@@ -4,6 +4,8 @@ Backend REST API for [EventRadar](../Tpfeventradar/) (FastAPI + Uvicorn), design
 
 ## Architecture
 
+Pełna dokumentacja: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** (wzorce, decyzje, endpointy, TDD, hosting).
+
 | Service | Port (host) | Exposure | Role |
 |---------|-------------|----------|------|
 | **api** | `8000` | Public | REST API for the frontend (`/api/v1/*`), CORS, camelCase DTOs |
