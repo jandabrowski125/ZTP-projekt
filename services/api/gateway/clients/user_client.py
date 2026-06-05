@@ -67,3 +67,68 @@ class UserServiceClient:
         )
         response.raise_for_status()
         return response.json()
+
+    async def list_favorites(self, authorization: str) -> list[dict[str, Any]]:
+        response = await self._request(
+            "GET",
+            "/internal/v1/users/me/favorites",
+            headers={"Authorization": authorization},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    async def add_favorite(self, authorization: str, payload: dict[str, Any]) -> dict[str, Any]:
+        response = await self._request(
+            "POST",
+            "/internal/v1/users/me/favorites",
+            json=payload,
+            headers={"Authorization": authorization},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    async def remove_favorite(self, authorization: str, saved_id: str) -> None:
+        response = await self._request(
+            "DELETE",
+            f"/internal/v1/users/me/favorites/{saved_id}",
+            headers={"Authorization": authorization},
+        )
+        response.raise_for_status()
+
+    async def list_past_events(self, authorization: str) -> list[dict[str, Any]]:
+        response = await self._request(
+            "GET",
+            "/internal/v1/users/me/past-events",
+            headers={"Authorization": authorization},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    async def add_past_event(self, authorization: str, payload: dict[str, Any]) -> dict[str, Any]:
+        response = await self._request(
+            "POST",
+            "/internal/v1/users/me/past-events",
+            json=payload,
+            headers={"Authorization": authorization},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    async def create_custom_event(self, authorization: str, payload: dict[str, Any]) -> dict[str, Any]:
+        response = await self._request(
+            "POST",
+            "/internal/v1/custom-events",
+            json=payload,
+            headers={"Authorization": authorization},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    async def list_my_custom_events(self, authorization: str) -> list[dict[str, Any]]:
+        response = await self._request(
+            "GET",
+            "/internal/v1/custom-events/mine",
+            headers={"Authorization": authorization},
+        )
+        response.raise_for_status()
+        return response.json()

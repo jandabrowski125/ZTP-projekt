@@ -12,6 +12,13 @@ def build_event_repository(settings: Settings) -> EventRepository:
     registry = EventIdRegistry()
     providers = []
 
+    if getattr(settings, "user_custom_events_enabled", False) and settings.user_service_url.strip():
+        from events_app.providers.custom.client import UserServiceCustomClient
+        from events_app.providers.custom.provider import CustomEventProvider
+
+        custom_client = UserServiceCustomClient(settings.user_service_url)
+        providers.append(CustomEventProvider(custom_client, registry))
+
     if settings.ticketmaster_api_key.strip():
         client = TicketmasterClient(
             api_key=settings.ticketmaster_api_key.strip(),

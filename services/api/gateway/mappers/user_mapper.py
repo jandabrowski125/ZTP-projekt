@@ -1,4 +1,4 @@
-from gateway.dto.users import UserPreferencesDTO, UserProfileDTO
+from gateway.dto.users import SavedEventDTO, UserPreferencesDTO, UserProfileDTO
 
 
 def to_user_profile_dto(raw: dict) -> UserProfileDTO:
@@ -18,6 +18,19 @@ def to_user_profile_dto(raw: dict) -> UserProfileDTO:
             promotions=prefs.get("promotions", False),
             privateProfile=prefs.get("private_profile", False),
         ),
+    )
+
+
+def to_saved_event_dto(raw: dict) -> SavedEventDTO:
+    return SavedEventDTO(
+        id=raw["id"],
+        listType=raw["list_type"],
+        publicEventId=raw.get("public_event_id"),
+        provider=raw.get("provider"),
+        externalId=raw.get("external_id"),
+        customEventId=raw.get("custom_event_id"),
+        eventSnapshot=raw.get("event_snapshot"),
+        attendedAt=raw.get("attended_at"),
     )
 
 

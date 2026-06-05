@@ -2,6 +2,7 @@ from typing import Any
 
 from gateway.dto.events import (
     CategoryDTO,
+    CustomEventResponseDTO,
     EventDataDTO,
     EventDetailsDTO,
     LineupArtistDTO,
@@ -74,4 +75,31 @@ def _ticket_item(raw: dict[str, Any]) -> TicketDTO:
         sub=raw["sub"],
         price=raw["price"],
         hoverColor=raw["hover_color"],
+    )
+
+
+def to_custom_event_dto(raw: dict[str, Any]) -> CustomEventResponseDTO:
+    """Convert user-service custom event (snake_case) to CustomEventResponseDTO (camelCase)."""
+    starts_at = raw.get("starts_at")
+    ends_at = raw.get("ends_at")
+    return CustomEventResponseDTO(
+        id=str(raw["id"]),
+        ownerUserId=str(raw["owner_user_id"]),
+        title=raw["title"],
+        shortTitle=raw.get("short_title"),
+        description=raw.get("description"),
+        venue=raw["venue"],
+        location=raw["location"],
+        lat=raw["lat"],
+        lng=raw["lng"],
+        category=raw["category"],
+        categoryColor=raw.get("category_color", "#7c3aed"),
+        priceLabel=raw.get("price_label"),
+        imageUrl=raw.get("image_url"),
+        tags=raw.get("tags") or [],
+        startsAt=str(starts_at) if starts_at is not None else "",
+        endsAt=str(ends_at) if ends_at is not None else None,
+        status=raw.get("status", "draft"),
+        lineup=raw.get("lineup") or [],
+        tickets=raw.get("tickets") or [],
     )
