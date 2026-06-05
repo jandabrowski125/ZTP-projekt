@@ -75,6 +75,10 @@ app.add_middleware(
 
 if settings.is_production and settings.trusted_hosts != "*":
     hosts = [host.strip() for host in settings.trusted_hosts.split(",") if host.strip()]
+    # Allow local healthchecks (Docker, curl on VPS) and Caddy → 127.0.0.1 upstream.
+    for internal in ("localhost", "127.0.0.1"):
+        if internal not in hosts:
+            hosts.append(internal)
     if hosts:
         app.add_middleware(TrustedHostMiddleware, allowed_hosts=hosts)
 
