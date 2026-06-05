@@ -8,7 +8,7 @@ from pydantic import BaseModel, EmailStr, Field
 from gateway.clients.user_client import UserServiceClient
 from gateway.config import settings
 from gateway.dto.users import SavedEventDTO, SaveEventBody, TokenResponseDTO, UpdateProfileBody, UserProfileDTO
-from gateway.dto.events import CustomEventCreateBody, CustomEventResponseDTO
+from gateway.dto.events import CustomEventCreateBody, CustomEventResponseDTO, CustomEventUpdateBody
 from gateway.mappers.user_mapper import to_saved_event_dto, to_user_profile_dto, update_body_to_snake
 from gateway.mappers.event_mapper import to_custom_event_dto
 
@@ -259,6 +259,17 @@ async def create_custom_event(
         raise _proxy_error(exc) from exc
 
 
+@router.get("/custom-events", response_model=list[CustomEventResponseDTO], response_model_by_alias=True)
+async def list_published_custom_events(
+    client: Annotated[UserServiceClient, Depends(get_user_client)],
+) -> list[CustomEventResponseDTO]:
+    try:
+        raw_list = await client.list_published_custom_events()
+        return [to_custom_event_dto(item) for item in raw_list]
+    except HTTPStatusError as exc:
+        raise _proxy_error(exc) from exc
+
+
 @router.get("/custom-events/mine", response_model=list[CustomEventResponseDTO], response_model_by_alias=True)
 async def list_my_custom_events(
     client: Annotated[UserServiceClient, Depends(get_user_client)],
@@ -269,5 +280,44 @@ async def list_my_custom_events(
     try:
         raw_list = await client.list_my_custom_events(authorization)
         return [to_custom_event_dto(item) for item in raw_list]
+    except HTTPStatusError as exc:
+        raise _proxy_error(exc) from exc
+
+
+@router.patch(
+    "/custom-events/{event_id}",
+    response_model=CustomEventResponseDTO,
+    response_model_by_alias=True,
+)
+async def update_custom_event(
+    event_id: UUID,
+    body: CustomEventUpdateBody,
+    client: Annotated[UserServiceClient, Depends(get_user_client)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> CustomEventResponseDTO:
+    if not authorization:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    payload = body.model_dump(exclude_unset=True)
+    if "starts_at" in payload and payload["starts_at"] is not None:
+        payload["starts_at"] = payload["starts_at"].isoformat()
+    if "ends_at" in payload and payload["ends_at"] is not None:
+        payload["ends_at"] = payload["ends_at"].isoformat()
+    try:
+        raw = await client.update_custom_event(authorization, str(event_id), payload)
+        return to_custom_event_dto(raw)
+    except HTTPStatusError as exc:
+        raise _proxy_error(exc) from exc
+
+
+@router.delete("/custom-events/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_custom_event(
+    event_id: UUID,
+    client: Annotated[UserServiceClient, Depends(get_user_client)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> None:
+    if not authorization:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    try:
+        await client.delete_custom_event(authorization, str(event_id))
     except HTTPStatusError as exc:
         raise _proxy_error(exc) from exc

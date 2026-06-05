@@ -132,3 +132,28 @@ class UserServiceClient:
         )
         response.raise_for_status()
         return response.json()
+
+    async def list_published_custom_events(self) -> list[dict[str, Any]]:
+        response = await self._request("GET", "/internal/v1/custom-events/published")
+        response.raise_for_status()
+        return response.json()
+
+    async def update_custom_event(
+        self, authorization: str, event_id: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
+        response = await self._request(
+            "PATCH",
+            f"/internal/v1/custom-events/{event_id}",
+            json=payload,
+            headers={"Authorization": authorization},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    async def delete_custom_event(self, authorization: str, event_id: str) -> None:
+        response = await self._request(
+            "DELETE",
+            f"/internal/v1/custom-events/{event_id}",
+            headers={"Authorization": authorization},
+        )
+        response.raise_for_status()

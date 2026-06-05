@@ -33,6 +33,8 @@ services:
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-}
       DOCS_USERNAME: ${DOCS_USERNAME:-admin}
       DOCS_PASSWORD: ${DOCS_PASSWORD:-}
+      USER_SERVICE_URL: "http://user-service:8002"
+      USER_CUSTOM_EVENTS_ENABLED: "true"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health')"]
       interval: 10s

@@ -125,7 +125,7 @@ class CustomEvent(Base):
     category: Mapped[str] = mapped_column(String(80), nullable=False)
     category_color: Mapped[str] = mapped_column(String(16), nullable=False, default="#7c3aed")
     price_label: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    image_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     tags: Mapped[list] = mapped_column(JSONB, nullable=False, server_default="[]")
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

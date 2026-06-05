@@ -27,6 +27,7 @@ def list_events(
     sort: str = Query(default="date_asc"),
     lat: float | None = Query(default=None, description="Search center latitude"),
     lng: float | None = Query(default=None, description="Search center longitude"),
+    include_community: bool = Query(default=False),
     service: EventService = Depends(get_event_service),
 ) -> list[EventSchema]:
     validate_date_range(date_from, date_to)
@@ -39,6 +40,7 @@ def list_events(
         sort=sort,
         lat=lat,
         lng=lng,
+        include_community=include_community,
     )
     return [EventSchema.model_validate(e) for e in events]
 

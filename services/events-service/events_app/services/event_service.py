@@ -19,6 +19,7 @@ class EventService:
         sort: str = "date_asc",
         lat: float | None = None,
         lng: float | None = None,
+        include_community: bool = False,
     ) -> list[Event]:
         return self._repository.list_events(
             category=category,
@@ -29,6 +30,7 @@ class EventService:
             sort=sort,
             lat=lat,
             lng=lng,
+            include_community=include_community,
         )
 
     def get_event(self, event_id: int) -> Event:

@@ -98,6 +98,8 @@ class CustomEventProvider:
             description=raw.get("description") or "",
             lineup=lineup,
             tickets=tickets,
+            is_community_event=True,
+            created_by=raw.get("owner_username"),
         )
 
     def search_events(self, params: ProviderSearchParams) -> list[Event]:

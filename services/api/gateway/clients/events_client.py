@@ -18,7 +18,7 @@ class EventsServiceClient:
         self._timeout = timeout
         self._internal_headers = internal_auth_headers(internal_token)
 
-    async def list_events(
+    async     def list_events(
         self,
         *,
         category: str | None = None,
@@ -29,6 +29,7 @@ class EventsServiceClient:
         sort: str = "date_asc",
         lat: float | None = None,
         lng: float | None = None,
+        include_community: bool = False,
     ) -> list[dict[str, Any]]:
         params: dict[str, str] = {"sort": sort}
         if category:
@@ -45,6 +46,8 @@ class EventsServiceClient:
             params["lat"] = str(lat)
         if lng is not None:
             params["lng"] = str(lng)
+        if include_community:
+            params["include_community"] = "true"
 
         async with httpx.AsyncClient(base_url=self._base_url, timeout=self._timeout) as client:
             response = await client.get(

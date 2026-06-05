@@ -15,7 +15,7 @@ class CustomEventCreateRequest(BaseModel):
     category: str = Field(min_length=1, max_length=80)
     category_color: str = Field(default="#7c3aed", max_length=16)
     price_label: str | None = Field(default=None, max_length=64)
-    image_url: str | None = Field(default=None, max_length=2048)
+    image_url: str | None = None
     tags: list[str] = Field(default_factory=list)
     starts_at: datetime
     ends_at: datetime | None = None
@@ -24,11 +24,32 @@ class CustomEventCreateRequest(BaseModel):
     publish: bool = False
 
 
+class CustomEventUpdateRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=300)
+    short_title: str | None = Field(default=None, max_length=80)
+    description: str | None = None
+    venue: str | None = Field(default=None, min_length=1, max_length=300)
+    location: str | None = Field(default=None, min_length=1, max_length=300)
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
+    category: str | None = Field(default=None, min_length=1, max_length=80)
+    category_color: str | None = Field(default=None, max_length=16)
+    price_label: str | None = Field(default=None, max_length=64)
+    image_url: str | None = None
+    tags: list[str] | None = None
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
+    lineup: list[dict] | None = None
+    tickets: list[dict] | None = None
+    publish: bool | None = None
+
+
 class CustomEventResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
     owner_user_id: UUID
+    owner_username: str | None = None
     title: str
     short_title: str | None
     description: str | None

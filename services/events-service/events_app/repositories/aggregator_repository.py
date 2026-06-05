@@ -28,6 +28,7 @@ class AggregatorEventRepository:
         sort: str = "date_asc",
         lat: float | None = None,
         lng: float | None = None,
+        include_community: bool = False,
     ) -> list[Event]:
         params = ProviderSearchParams(
             category=category,
@@ -44,6 +45,8 @@ class AggregatorEventRepository:
         seen: set[int] = set()
 
         for provider in self._providers:
+            if not include_community and provider.name == "custom":
+                continue
             try:
                 provider_events = provider.search_events(params)
             except Exception:

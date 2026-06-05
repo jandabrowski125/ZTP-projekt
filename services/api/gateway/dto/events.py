@@ -50,6 +50,8 @@ class EventDetailsDTO(EventDataDTO):
     description: str
     lineup: list[LineupArtistDTO] = Field(default_factory=list)
     tickets: list[TicketDTO] = Field(default_factory=list)
+    is_community_event: bool = Field(default=False, alias="isCommunityEvent")
+    created_by: str | None = Field(default=None, alias="createdBy")
 
 
 class MapPinDTO(BaseModel):
@@ -97,11 +99,34 @@ class CustomEventCreateBody(BaseModel):
     publish: bool = False
 
 
+class CustomEventUpdateBody(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    title: str | None = None
+    short_title: str | None = Field(default=None, alias="shortTitle")
+    description: str | None = None
+    venue: str | None = None
+    location: str | None = None
+    lat: float | None = None
+    lng: float | None = None
+    category: str | None = None
+    category_color: str | None = Field(default=None, alias="categoryColor")
+    price_label: str | None = Field(default=None, alias="priceLabel")
+    image_url: str | None = Field(default=None, alias="imageUrl")
+    tags: list[str] | None = None
+    starts_at: datetime | None = Field(default=None, alias="startsAt")
+    ends_at: datetime | None = Field(default=None, alias="endsAt")
+    lineup: list[dict] | None = None
+    tickets: list[dict] | None = None
+    publish: bool | None = None
+
+
 class CustomEventResponseDTO(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     id: str
     owner_user_id: str = Field(alias="ownerUserId")
+    owner_username: str | None = Field(default=None, alias="ownerUsername")
     title: str
     short_title: str | None = Field(default=None, alias="shortTitle")
     description: str | None = None
