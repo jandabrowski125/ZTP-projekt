@@ -228,6 +228,7 @@ Przychowuj poza VPS (Hetzner Storage Box, lokalnie).
 | CORS error w przeglądarce | `CORS_ORIGINS` musi **dokładnie** pasować do origin Pages (https, bez `/`) |
 | 502 z Caddy | `docker compose ... ps` — czy `api` healthy? `curl localhost:8000/health` |
 | `Production configuration invalid` | Sprawdź długość sekretów, `TRUSTED_HOSTS` ≠ `*` |
+| `Invalid host header` na `curl 127.0.0.1:8000` | Po `git pull` + rebuild OK; tymczasowo: `curl -H "Host: api.twoja-domena.pl" http://127.0.0.1:8000/health` |
 | Brak wydarzeń | `TICKETMASTER_API_KEY` w `.env`, restart `events-service` |
 | Pages build fail | Zainstaluj Bun w buildzie lub przełącz na `npm run build` |
 
