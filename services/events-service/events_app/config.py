@@ -9,8 +9,12 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    app_env: str = "development"
     events_service_host: str = "0.0.0.0"
     events_service_port: int = 8001
+    internal_service_token: str = ""
+    docs_username: str = "admin"
+    docs_password: str = ""
 
     # Default map/search center (Kraków, Rynek Główny)
     default_coord_lat: float = 50.046943
@@ -40,6 +44,10 @@ class Settings(BaseSettings):
     eventbrite_page_size: int = 50
     eventbrite_base_url: str = "https://www.eventbriteapi.com/v3"
     eventbrite_cache_ttl_seconds: float = 60.0
+
+    @property
+    def is_production(self) -> bool:
+        return self.app_env.lower() == "production"
 
     @property
     def ticketmaster_search_lat(self) -> float:

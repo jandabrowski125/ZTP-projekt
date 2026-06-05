@@ -3,6 +3,7 @@ FROM python:3.12-slim
 WORKDIR /app
 
 COPY pyproject.toml README.md ./
+COPY services/common ./services/common
 COPY services/user-service ./services/user-service
 
 RUN pip install --no-cache-dir \
@@ -19,7 +20,7 @@ RUN pip install --no-cache-dir \
     "PyJWT>=2.10.0" \
     "pytest>=8.3.0"
 
-ENV PYTHONPATH=/app/services/user-service
+ENV PYTHONPATH=/app/services/user-service:/app/services/common
 ENV USER_SERVICE_HOST=0.0.0.0
 ENV USER_SERVICE_PORT=8002
 

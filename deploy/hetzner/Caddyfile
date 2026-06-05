@@ -1,0 +1,7 @@
+# Copy to /etc/caddy/Caddyfile on the VPS.
+# Replace api.example.com with your API subdomain.
+
+api.example.com {
+	encode gzip
+	reverse_proxy 127.0.0.1:8000
+}

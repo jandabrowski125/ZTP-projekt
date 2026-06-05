@@ -227,12 +227,13 @@ class TicketmasterClient:
         if response.is_success:
             return
         body = response.text[:800]
+        safe_url = str(response.url).split("?", 1)[0]
+        safe_context = {key: ("***" if key == "apikey" else value) for key, value in context.items()}
         if response.status_code == 429:
             raise TicketmasterRateLimitError(
-                f"Ticketmaster API 429 for {response.request.url!s}. "
-                f"Params: {context}. Body: {body}"
+                f"Ticketmaster API 429 for {safe_url}. Params: {safe_context}. Body: {body}"
             ) from None
         raise TicketmasterApiError(
-            f"Ticketmaster API {response.status_code} for {response.request.url!s}. "
-            f"Params: {context}. Body: {body}"
+            f"Ticketmaster API {response.status_code} for {safe_url}. "
+            f"Params: {safe_context}. Body: {body}"
         ) from None

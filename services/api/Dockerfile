@@ -3,6 +3,7 @@ FROM python:3.12-slim
 WORKDIR /app
 
 COPY pyproject.toml README.md ./
+COPY services/common ./services/common
 COPY services/api ./services/api
 
 RUN pip install --no-cache-dir \
@@ -12,7 +13,7 @@ RUN pip install --no-cache-dir \
     "pydantic[email]>=2.10.0" \
     "pydantic-settings>=2.6.0"
 
-ENV PYTHONPATH=/app/services/api
+ENV PYTHONPATH=/app/services/api:/app/services/common
 ENV API_HOST=0.0.0.0
 ENV API_PORT=8000
 ENV EVENTS_SERVICE_URL=http://events-service:8001

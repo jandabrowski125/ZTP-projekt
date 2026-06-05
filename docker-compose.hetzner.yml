@@ -1,17 +1,23 @@
+# Hetzner VPS — full stack: Postgres + backend microservices.
+# API binds to localhost only; expose publicly via Caddy (see docs/DEPLOYMENT_HETZNER.md).
+#
+#   docker compose -f docker-compose.hetzner.yml up -d --build
+#
+# Required in .env: POSTGRES_PASSWORD, JWT_SECRET, INTERNAL_SERVICE_TOKEN,
+# DOCS_PASSWORD, CORS_ORIGINS, TRUSTED_HOSTS, TICKETMASTER_API_KEY
+
 services:
   postgres:
     image: postgres:16-alpine
     container_name: eventradar-postgres
     environment:
-      POSTGRES_USER: eventradar
-      POSTGRES_PASSWORD: eventradar
-      POSTGRES_DB: eventradar
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-eventradar}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-eventradar}
     volumes:
       - eventradar_pg:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U eventradar -d eventradar"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-eventradar} -d ${POSTGRES_DB:-eventradar}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -21,18 +27,18 @@ services:
     build:
       context: .
       dockerfile: services/events-service/Dockerfile
-    image: eventradar-events-service:local
-    container_name: eventradar-events-service
+    image: eventradar-events-service:hetzner
     env_file:
       - .env
     expose:
       - "8001"
     environment:
+      APP_ENV: ${APP_ENV:-production}
       EVENTS_SERVICE_HOST: "0.0.0.0"
       EVENTS_SERVICE_PORT: "8001"
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       DOCS_USERNAME: ${DOCS_USERNAME:-admin}
-      DOCS_PASSWORD: ${DOCS_PASSWORD:-}
+      DOCS_PASSWORD: ${DOCS_PASSWORD}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health')"]
       interval: 10s
@@ -45,20 +51,20 @@ services:
     build:
       context: .
       dockerfile: services/user-service/Dockerfile
-    image: eventradar-user-service:local
-    container_name: eventradar-user-service
+    image: eventradar-user-service:hetzner
     env_file:
       - .env
     expose:
       - "8002"
     environment:
+      APP_ENV: ${APP_ENV:-production}
       USER_SERVICE_HOST: "0.0.0.0"
       USER_SERVICE_PORT: "8002"
-      DATABASE_URL: "postgresql+psycopg://eventradar:eventradar@postgres:5432/eventradar"
-      JWT_SECRET: "${JWT_SECRET:-dev-change-me}"
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-eventradar}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-eventradar}
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       DOCS_USERNAME: ${DOCS_USERNAME:-admin}
-      DOCS_PASSWORD: ${DOCS_PASSWORD:-}
+      DOCS_PASSWORD: ${DOCS_PASSWORD}
     depends_on:
       postgres:
         condition: service_healthy
@@ -73,26 +79,28 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 15s
+      start_period: 20s
     restart: unless-stopped
 
   api:
     build:
       context: .
       dockerfile: services/api/Dockerfile
-    image: eventradar-api:local
-    container_name: eventradar-api
+    image: eventradar-api:hetzner
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
+      APP_ENV: ${APP_ENV:-production}
       API_HOST: "0.0.0.0"
       API_PORT: "8000"
       EVENTS_SERVICE_URL: "http://events-service:8001"
       USER_SERVICE_URL: "http://user-service:8002"
-      CORS_ORIGINS: "http://localhost:5173,http://localhost:5678,http://127.0.0.1:5173,http://127.0.0.1:5678"
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      TRUSTED_HOSTS: ${TRUSTED_HOSTS}
+      TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-1}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       DOCS_USERNAME: ${DOCS_USERNAME:-admin}
-      DOCS_PASSWORD: ${DOCS_PASSWORD:-}
+      DOCS_PASSWORD: ${DOCS_PASSWORD}
     depends_on:
       events-service:
         condition: service_healthy

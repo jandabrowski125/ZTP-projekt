@@ -1,9 +1,10 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from httpx import HTTPStatusError
 
 from gateway.api.date_validation import validate_date_range
+from gateway.api.errors import upstream_http_error
 from gateway.dto.events import (
     CategoryDTO,
     EventDetailsDTO,
@@ -46,7 +47,7 @@ async def list_events(
             lng=lng,
         )
     except HTTPStatusError as exc:
-        raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text) from exc
+        raise upstream_http_error(exc) from exc
 
 
 @router.get("/events/{event_id}", response_model=EventDetailsDTO, response_model_by_alias=True)
@@ -57,9 +58,7 @@ async def get_event(
     try:
         return await facade.get_event(event_id)
     except HTTPStatusError as exc:
-        if exc.response.status_code == 404:
-            raise HTTPException(status_code=404, detail="Event not found") from exc
-        raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text) from exc
+        raise upstream_http_error(exc, not_found_detail="Event not found") from exc
 
 
 @router.get("/map/pins", response_model=list[MapPinDTO], response_model_by_alias=True)
@@ -83,7 +82,7 @@ async def list_map_pins(
             lng=lng,
         )
     except HTTPStatusError as exc:
-        raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text) from exc
+        raise upstream_http_error(exc) from exc
 
 
 @router.get("/categories", response_model=list[CategoryDTO])
@@ -93,4 +92,4 @@ async def list_categories(
     try:
         return await facade.list_categories()
     except HTTPStatusError as exc:
-        raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text) from exc
+        raise upstream_http_error(exc) from exc

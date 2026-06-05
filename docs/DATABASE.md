@@ -15,18 +15,18 @@
 
 ## Cloud-first deployment
 
-- **Production:** managed Postgres on a **separate host** from the API. Set `DATABASE_URL` (TLS URL from the provider). No DB port on the app server.
-- **Backend:** `user-service` connects via `DATABASE_URL` only (12-factor). No hardcoded hostnames in code.
-- **Local dev:** optional `postgres` service in Docker Compose (`profile: local-db`) mimics the remote DB; same connection string shape.
+- **Production (Hetzner):** PostgreSQL runs as a **Docker container on the same VPS** (`docker-compose.hetzner.yml`). Set `POSTGRES_PASSWORD` in `.env`; port 5432 is not published publicly.
+- **Backend:** `user-service` connects via `DATABASE_URL` (12-factor). On Hetzner compose the URL is assembled automatically from `POSTGRES_*` vars.
+- **Local dev:** `docker compose up` starts `postgres` alongside app services (`docker-compose.yml`).
 
 ## Containerization
 
 | Component | Containerize? | Notes |
 |-----------|---------------|--------|
-| PostgreSQL (prod) | **No** | Use managed service |
-| PostgreSQL (local) | **Optional** | `docker compose --profile local-db up` |
+| PostgreSQL (prod) | **Yes** (VPS) | Same host as API via `docker-compose.hetzner.yml` |
+| PostgreSQL (local) | **Yes** | Included in `docker-compose.yml` |
 | `user-service` | **Yes** | Same pattern as `events-service` / `api` |
-| Migrations | **Job / CI step** | `alembic upgrade head` before or during deploy |
+| Migrations | **On startup** | `user_app.db.bootstrap` before uvicorn |
 
 ## Schema overview
 
