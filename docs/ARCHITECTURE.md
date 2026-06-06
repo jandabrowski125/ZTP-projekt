@@ -33,12 +33,11 @@ Architektura opiera się na **mikroserwisach** w Dockerze. Z internetu dostępny
 ┌───────────────────────────┐         ┌───────────────────────────────────┐
 │  events-service :8001     │         │  user-service :8002               │
 │  agregacja providerów     │         │  użytkownicy, ulubione, własne    │
-│  (Ticketmaster, EB…)      │         │  wydarzenia → PostgreSQL          │
+│  (Ticketmaster)           │         │  wydarzenia → PostgreSQL          │
 └───────────┬───────────────┘         └───────────────────┬───────────────┘
             │ HTTPS (zewnętrzne API)                        │
             ▼                                             ▼
    Ticketmaster Discovery API                    postgres :5432 (kontener)
-   Eventbrite API v3
 ```
 
 ### Serwisy
@@ -117,7 +116,7 @@ Katalog wydarzeń pochodzi z API zewnętrznych (Ticketmaster jako główne źró
 | **Facade** | `gateway/services/event_facade.py` | Uproszczenie tras - orchestracja klienta HTTP + mapperów |
 | **Repository** | `EventRepository` (Protocol), `UserRepository`, `CustomEventRepository` | Abstrakcja dostępu do danych |
 | **Aggregator** | `AggregatorEventRepository` | Merge wielu providerów, deduplikacja, sortowanie |
-| **Strategy** | `TicketmasterProvider`, `EventbriteProvider` | Wymienne źródła wydarzeń |
+| **Strategy** | `TicketmasterProvider` | Źródło wydarzeń z Ticketmaster Discovery |
 | **Factory** | `build_event_repository()` | Składanie providerów z konfiguracji `.env` |
 | **Protocol (structural typing)** | `EventProvider`, `EventRepository` | Kontrakty bez dziedziczenia klas |
 | **Mapper** | `providers/*/mapper.py`, `gateway/mappers/` | Izolacja formatów zewnętrznych od domeny |
@@ -135,13 +134,6 @@ Katalog wydarzeń pochodzi z API zewnętrznych (Ticketmaster jako główne źró
 - **Parametry:** `latlong`, `radius`, `unit` (km/miles), `countryCode`, `classificationName`, `keyword`, zakres dat
 - **Cache:** pamięć in-process, TTL (`TICKETMASTER_CACHE_TTL_SECONDS`, domyślnie 60 s); przy HTTP 429 zwracane są stale wyniki
 - **Mapowanie:** `mapper.py` - venue, ceny, lineup z `_embedded.attractions`, placeholder `"No data available"` dla brakujących pól
-
-### Eventbrite API v3
-
-- **Klient:** `events_app/providers/eventbrite/client.py`
-- Publiczny endpoint **`/events/search/` został wycofany** (404/406) - wymagany **`EVENTBRITE_ORGANIZATION_ID`**
-- Lista: `GET /organizations/{id}/events/` + filtr haversine po współrzędnych venue w promieniu `EVENTBRITE_RADIUS`
-- Szczegóły: `GET /events/{id}/?expand=venue,category,...`
 
 ### Agregacja (`aggregator_repository.py`)
 
@@ -262,7 +254,6 @@ Projekt stosuje **Test-Driven Design** w praktyce iteracyjnej: testy pisane rów
 | Gateway API | `services/api/tests/test_gateway_api.py` | Endpointy publiczne, camelCase, walidacja dat |
 | Agregator | `services/events-service/tests/test_aggregator_repository.py` | Merge, deduplikacja, odporność na błąd providera |
 | Ticketmaster | `test_ticketmaster_client.py`, `test_ticketmaster_mapper.py` | Cache, 429, mapowanie pól |
-| Eventbrite | `test_eventbrite_client.py` | Org events, filtr geo, deprecated search |
 | User-service | `test_api_routes.py`, `test_user_repository.py` | Auth, ulubione, schemat DB |
 
 ### Uruchomienie

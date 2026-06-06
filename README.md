@@ -9,12 +9,12 @@ Pełna dokumentacja: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** (wzorce, d
 | Service | Port (host) | Exposure | Role |
 |---------|-------------|----------|------|
 | **api** | `8000` | Public | REST API for the frontend (`/api/v1/*`), CORS, camelCase DTOs |
-| **events-service** | — (internal `8001`) | Docker network only | Aggregates external providers (Ticketmaster, EventBrite, …) |
+| **events-service** | — (internal `8001`) | Docker network only | Aggregates external providers (Ticketmaster) |
 | **user-service** | — (internal `8002`) | Docker network only | Users, favorites, past events, custom venue events (PostgreSQL) |
 | **postgres** | `5432` (local dev only) | Dev: host port | PostgreSQL 16 — container on VPS in production (`docker-compose.hetzner.yml`) |
 
 ```
-Frontend  →  api:8000  →  events-service:8001  →  Aggregator → Ticketmaster / EventBrite APIs
+Frontend  →  api:8000  →  events-service:8001  →  Aggregator → Ticketmaster API
                        →  user-service:8002   →  PostgreSQL (Docker container)
 ```
 
@@ -34,19 +34,14 @@ Frontend  →  api:8000  →  events-service:8001  →  Aggregator → Ticketmas
 
 1. Copy `.env.example` → `.env`.
 2. Set `TICKETMASTER_API_KEY` from [Ticketmaster Developer Portal](https://developer.ticketmaster.com/).
-3. (Optional) Set `EVENTBRITE_TOKEN` and **`EVENTBRITE_ORGANIZATION_ID`** from [EventBrite Platform](https://www.eventbrite.com/platform/api) to merge EventBrite events (org id is required — public geo search was removed). At least one provider key is required.
-4. Default search/map center (Kraków, Rynek Główny):
+3. Default search/map center (Kraków, Rynek Główny):
 
 ```env
 DEFAULT_COORD_LAT=50.046943
 DEFAULT_COORD_LNG=19.997153
 ```
 
-Provider-specific coordinates inherit from `DEFAULT_COORD_*` when `TICKETMASTER_LAT` / `TICKETMASTER_LNG` (or `EVENTBRITE_LAT` / `EVENTBRITE_LNG`) are omitted. The public API accepts optional `lat` & `lng` query params for map-based search.
-
-### EventBrite limitation
-
-EventBrite’s public **event search** endpoint (`GET /v3/events/search/`) was [deprecated in 2020](https://www.eventbrite.com/platform/api) and now returns **HTTP 404** or **406**. Set **`EVENTBRITE_ORGANIZATION_ID`** (with `EVENTBRITE_TOKEN`) so events-service calls `GET /v3/organizations/{id}/events/` and filters by venue coordinates within `EVENTBRITE_RADIUS` / `EVENTBRITE_UNIT`. Without an org id, EventBrite contributes no rows (Ticketmaster still loads). Stale cache is served on HTTP 429. `GET /v3/events/{id}/` works for detail lookup by external id.
+Provider-specific coordinates inherit from `DEFAULT_COORD_*` when `TICKETMASTER_LAT` / `TICKETMASTER_LNG` are omitted. The public API accepts optional `lat` & `lng` query params for map-based search.
 
 ## Quick start (Docker)
 
@@ -148,14 +143,7 @@ ruff format services/
 
 | Variable | Service | Default |
 |----------|---------|---------|
-| `TICKETMASTER_API_KEY` | events-service | Ticketmaster Discovery (one of TM or EB required) |
-| `EVENTBRITE_TOKEN` | events-service | EventBrite private token (optional second provider) |
-| `EVENTBRITE_ORGANIZATION_ID` | events-service | **required** for EventBrite list data — org events API + client-side geo filter |
-| `EVENTBRITE_LAT` / `EVENTBRITE_LNG` | events-service | inherit `DEFAULT_COORD_*` |
-| `EVENTBRITE_RADIUS` | events-service | `50` — haversine radius for org-event venue filter |
-| `EVENTBRITE_UNIT` | events-service | `km` or `miles` (converts radius for venue filter) |
-| `EVENTBRITE_CACHE_TTL_SECONDS` | events-service | `60` — shared cache for parallel `/events` + `/map/pins` |
-| `EVENTBRITE_PAGE_SIZE` | events-service | `50` (API max 50 per page) |
+| `TICKETMASTER_API_KEY` | events-service | Ticketmaster Discovery (required) |
 | `DEFAULT_COORD_LAT` / `DEFAULT_COORD_LNG` | events-service | Kraków (50.046943, 19.997153) |
 | `TICKETMASTER_LAT` / `TICKETMASTER_LNG` | events-service | inherit `DEFAULT_COORD_*` |
 | `TICKETMASTER_RADIUS` | events-service | `50` |

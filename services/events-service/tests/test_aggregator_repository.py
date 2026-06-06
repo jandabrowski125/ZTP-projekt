@@ -80,7 +80,7 @@ def test_aggregator_resolves_get_event_via_registry():
 def test_aggregator_continues_when_one_provider_fails():
     registry = EventIdRegistry()
     ok_event = _sample_event(101, "Ticketmaster Event")
-    failing = _StubProvider([], name="eventbrite", fail=True)
+    failing = _StubProvider([], name="secondary", fail=True)
     working = _StubProvider([ok_event], name="ticketmaster")
 
     repo = AggregatorEventRepository([failing, working], registry)

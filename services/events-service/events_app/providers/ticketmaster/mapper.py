@@ -5,31 +5,13 @@ from events_app.domain.models import Event, LineupArtist, MapPinCategory, Ticket
 from events_app.providers import missing_data as md
 from events_app.providers.id_registry import public_id_for
 
+from events_app.providers.ticketmaster.segments import (
+    CATEGORY_COLORS,
+    CATEGORY_TO_PIN,
+    SEGMENT_ID_TO_CATEGORY,
+)
+
 DEFAULT_IMAGE = "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1080&q=80"
-
-SEGMENT_TO_CATEGORY: dict[str, str] = {
-    "Music": "Music",
-    "Sports": "Sports",
-    "Arts & Theatre": "Arts",
-    "Film": "Arts",
-    "Miscellaneous": "Food & Drink",
-}
-
-SEGMENT_TO_PIN: dict[str, MapPinCategory] = {
-    "Music": MapPinCategory.MUSIC,
-    "Sports": MapPinCategory.SPORTS,
-    "Arts & Theatre": MapPinCategory.DEFAULT,
-    "Film": MapPinCategory.DEFAULT,
-    "Miscellaneous": MapPinCategory.FOOD,
-}
-
-CATEGORY_COLORS: dict[str, str] = {
-    "Music": "#7c3aed",
-    "Sports": "#4ade80",
-    "Arts": "#0ea5e9",
-    "Food & Drink": "#ffb784",
-    "Nightlife": "#00a2e6",
-}
 
 
 def map_ticketmaster_event(
@@ -162,14 +144,21 @@ def _parse_category(raw: dict[str, Any]) -> tuple[str, MapPinCategory]:
     if not primary and classifications:
         primary = classifications[0]
 
+    segment_id = ""
     segment_name = md.NO_CATEGORY
     if primary:
         segment = primary.get("segment") or {}
+        segment_id = str(segment.get("id") or "")
         segment_name = segment.get("name") or md.NO_CATEGORY
 
-    fallback = segment_name if segment_name != md.NO_CATEGORY else "Arts"
-    category = SEGMENT_TO_CATEGORY.get(segment_name, fallback)
-    pin = SEGMENT_TO_PIN.get(segment_name, MapPinCategory.DEFAULT)
+    if segment_id in SEGMENT_ID_TO_CATEGORY:
+        category = SEGMENT_ID_TO_CATEGORY[segment_id]
+    elif segment_name != md.NO_CATEGORY:
+        category = segment_name
+    else:
+        category = md.NO_CATEGORY
+
+    pin = CATEGORY_TO_PIN.get(category, MapPinCategory.DEFAULT)
     return category, pin
 
 

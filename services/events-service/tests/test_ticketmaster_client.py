@@ -88,3 +88,26 @@ def test_search_events_returns_empty_on_rate_limit_without_cache():
         side_effect=TicketmasterRateLimitError("429"),
     ):
         assert client.search_events(params) == []
+
+
+def test_fetch_search_does_not_send_classification_name_for_category_filter():
+    client = _make_client()
+    params = ProviderSearchParams(category="Music", lat=50.046943, lng=19.997153)
+
+    mock_response = type(
+        "R",
+        (),
+        {
+            "status_code": 200,
+            "is_success": True,
+            "json": lambda self: {"_embedded": {"events": []}},
+        },
+    )()
+
+    with patch("events_app.providers.ticketmaster.client.httpx.Client") as client_cls:
+        http_client = client_cls.return_value.__enter__.return_value
+        http_client.get.return_value = mock_response
+        client._fetch_search(params)
+
+    _, kwargs = http_client.get.call_args
+    assert "classificationName" not in kwargs["params"]
