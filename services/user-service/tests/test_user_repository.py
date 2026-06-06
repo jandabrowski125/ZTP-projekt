@@ -73,7 +73,7 @@ def test_favorites_and_past_events(db_session):
         user_id=user.id,
         list_type=SavedEventListType.PAST,
         public_event_id=102,
-        provider="eventbrite",
+        provider="ticketmaster",
         external_id="xyz",
         event_snapshot=None,
         attended_at=None,

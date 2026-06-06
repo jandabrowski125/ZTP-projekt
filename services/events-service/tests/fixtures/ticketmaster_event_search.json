@@ -15,7 +15,7 @@
   "classifications": [
     {
       "primary": true,
-      "segment": { "name": "Music" },
+      "segment": { "name": "Music", "id": "KZFzniwnSyZfZ7v7nJ" },
       "genre": { "name": "Rock" },
       "subGenre": { "name": "Alternative Rock" }
     }

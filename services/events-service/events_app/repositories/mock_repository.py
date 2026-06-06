@@ -88,7 +88,7 @@ _MOCK_EVENTS: tuple[Event, ...] = (
         venue="Pier 39",
         location="Manhattan, NY",
         distance="1.2 mi",
-        category="Food & Drink",
+        category="Other",
         category_color="#ffb784",
         price="Free",
         image="https://images.unsplash.com/photo-1549366970-6b64335a55cb?w=1080&q=80",
@@ -168,7 +168,7 @@ _MOCK_EVENTS: tuple[Event, ...] = (
         venue="Javits Center",
         location="Manhattan, NY",
         distance="2.1 mi",
-        category="Arts",
+        category="Arts & Theatre",
         category_color="#0ea5e9",
         price="Free",
         image="https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1080&q=80",
@@ -189,10 +189,9 @@ _MOCK_EVENTS: tuple[Event, ...] = (
 _CATEGORIES: tuple[Category, ...] = (
     Category("All Events", "event"),
     Category("Music", "music_note"),
-    Category("Food & Drink", "restaurant"),
     Category("Sports", "sports_soccer"),
-    Category("Arts", "palette"),
-    Category("Nightlife", "nightlife"),
+    Category("Arts & Theatre", "theater_comedy"),
+    Category("Other", "category"),
 )
 
 

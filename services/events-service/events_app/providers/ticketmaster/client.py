@@ -27,16 +27,6 @@ UNIT_ALIASES: dict[str, str] = {
     "mile": "miles",
 }
 
-CATEGORY_TO_CLASSIFICATION: dict[str, str | None] = {
-    "All Events": None,
-    "Music": "Music",
-    "Sports": "Sports",
-    "Arts": "Arts & Theatre",
-    "Food & Drink": "Miscellaneous",
-    "Nightlife": "Music",
-}
-
-
 def normalize_ticketmaster_unit(unit: str) -> str:
     """Map human-friendly unit names to Ticketmaster API values."""
     key = unit.strip().lower()
@@ -156,9 +146,9 @@ class TicketmasterClient:
         if self._country_code:
             query["countryCode"] = self._country_code
 
-        classification = CATEGORY_TO_CLASSIFICATION.get(params.category or "All Events")
-        if classification:
-            query["classificationName"] = classification
+        # Category is applied in AggregatorEventRepository after mapping segment → UI label.
+        # classificationName here often returns empty for pl-pl / geo searches while the
+        # same window without it yields events that map to Music, Arts, etc.
 
         if params.query:
             query["keyword"] = params.query

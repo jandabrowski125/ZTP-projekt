@@ -100,9 +100,6 @@ TRUSTED_HOSTS=api.twoja-domena.pl
 TRUST_PROXY_HEADERS=1
 
 TICKETMASTER_API_KEY=<twój_klucz>
-# opcjonalnie Eventbrite:
-# EVENTBRITE_TOKEN=
-# EVENTBRITE_ORGANIZATION_ID=
 ```
 
 ### Uruchom stack

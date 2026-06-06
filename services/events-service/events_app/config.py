@@ -23,8 +23,6 @@ class Settings(BaseSettings):
     # Optional per-provider overrides (inherit DEFAULT_COORD_* when unset)
     ticketmaster_lat: float | None = Field(default=None)
     ticketmaster_lng: float | None = Field(default=None)
-    eventbrite_lat: float | None = Field(default=None)
-    eventbrite_lng: float | None = Field(default=None)
 
     ticketmaster_api_key: str = ""
     ticketmaster_radius: int = 50
@@ -35,15 +33,6 @@ class Settings(BaseSettings):
     ticketmaster_base_url: str = "https://app.ticketmaster.com/discovery/v2"
     # Dedupe parallel /events + /map/pins calls; TM free tier is ~5 req/s with burst 1.
     ticketmaster_cache_ttl_seconds: float = 60.0
-
-    eventbrite_token: str = ""
-    # Required for EventBrite list data (public /events/search/ returns 404/406)
-    eventbrite_organization_id: str = ""
-    eventbrite_radius: int = 50
-    eventbrite_unit: str = "km"
-    eventbrite_page_size: int = 50
-    eventbrite_base_url: str = "https://www.eventbriteapi.com/v3"
-    eventbrite_cache_ttl_seconds: float = 60.0
 
     @property
     def is_production(self) -> bool:
@@ -59,18 +48,6 @@ class Settings(BaseSettings):
     def ticketmaster_search_lng(self) -> float:
         return (
             self.ticketmaster_lng if self.ticketmaster_lng is not None else self.default_coord_lng
-        )
-
-    @property
-    def eventbrite_search_lat(self) -> float:
-        return (
-            self.eventbrite_lat if self.eventbrite_lat is not None else self.default_coord_lat
-        )
-
-    @property
-    def eventbrite_search_lng(self) -> float:
-        return (
-            self.eventbrite_lng if self.eventbrite_lng is not None else self.default_coord_lng
         )
 
 
