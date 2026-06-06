@@ -32,31 +32,27 @@ def ensure_schema() -> None:
     cfg.set_main_option("script_location", str(SERVICE_ROOT / "alembic"))
     cfg.set_main_option("sqlalchemy.url", str(engine.url))
 
+    missing = _missing_tables(engine)
+    if missing:
+        logger.warning("Missing tables %s", sorted(missing))
+        if inspect(engine).has_table("alembic_version"):
+            logger.warning("Resetting alembic stamp (schema out of sync)")
+            command.stamp(cfg, "base")
+
     logger.info("Applying Alembic migrations")
     command.upgrade(cfg, "head")
 
     missing = _missing_tables(engine)
-    if not missing:
-        logger.info("Database schema is up to date")
-        return
-
-    logger.warning("Missing tables %s — rebuilding schema", sorted(missing))
-
-    if inspect(engine).has_table("alembic_version"):
-        logger.warning("Resetting alembic stamp (version row without tables)")
-        command.stamp(cfg, "base")
-
-    command.upgrade(cfg, "head")
-
-    missing = _missing_tables(engine)
     if missing:
-        logger.warning("Alembic upgrade incomplete; creating tables via metadata (%s)", sorted(missing))
+        logger.warning("Creating missing tables via metadata (%s)", sorted(missing))
         Base.metadata.create_all(engine)
 
     still_missing = _missing_tables(engine)
     if still_missing:
         msg = f"Failed to create tables: {sorted(still_missing)}"
         raise RuntimeError(msg)
+
+    logger.info("Database schema is up to date")
 
 
 def verify_schema() -> None:
