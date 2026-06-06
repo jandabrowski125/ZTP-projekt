@@ -100,6 +100,7 @@ class CustomEventProvider:
             tickets=tickets,
             is_community_event=True,
             created_by=raw.get("owner_username"),
+            community_event_id=str(external_id) if external_id else None,
         )
 
     def search_events(self, params: ProviderSearchParams) -> list[Event]:
@@ -117,6 +118,8 @@ class CustomEventProvider:
     def get_event(self, external_id: str) -> Event | None:
         raw = self._client.get_event(external_id)
         if not raw:
+            return None
+        if raw.get("status") != "published":
             return None
         try:
             return self._map_to_event(raw)

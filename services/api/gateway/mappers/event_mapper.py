@@ -40,6 +40,7 @@ def to_event_details_dto(raw: dict[str, Any]) -> EventDetailsDTO:
         tickets=[_ticket_item(item) for item in raw.get("tickets", [])],
         isCommunityEvent=raw.get("is_community_event", False),
         createdBy=raw.get("created_by"),
+        communityEventId=raw.get("community_event_id"),
     )
 
 

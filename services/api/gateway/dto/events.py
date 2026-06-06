@@ -52,6 +52,7 @@ class EventDetailsDTO(EventDataDTO):
     tickets: list[TicketDTO] = Field(default_factory=list)
     is_community_event: bool = Field(default=False, alias="isCommunityEvent")
     created_by: str | None = Field(default=None, alias="createdBy")
+    community_event_id: str | None = Field(default=None, alias="communityEventId")
 
 
 class MapPinDTO(BaseModel):

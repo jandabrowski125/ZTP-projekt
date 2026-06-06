@@ -56,6 +56,7 @@ class Event:
     tickets: tuple[Ticket, ...]
     is_community_event: bool = False
     created_by: str | None = None
+    community_event_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

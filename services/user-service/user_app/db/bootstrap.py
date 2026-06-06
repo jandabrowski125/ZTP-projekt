@@ -26,17 +26,21 @@ def _missing_tables(engine) -> set[str]:
 
 
 def ensure_schema() -> None:
-    """Run migrations and repair when alembic_version is ahead of actual tables."""
+    """Apply pending Alembic migrations and repair when tables are missing."""
     engine = get_engine()
+    cfg = Config(str(SERVICE_ROOT / "alembic.ini"))
+    cfg.set_main_option("script_location", str(SERVICE_ROOT / "alembic"))
+    cfg.set_main_option("sqlalchemy.url", str(engine.url))
+
+    logger.info("Applying Alembic migrations")
+    command.upgrade(cfg, "head")
+
     missing = _missing_tables(engine)
     if not missing:
         logger.info("Database schema is up to date")
         return
 
     logger.warning("Missing tables %s — rebuilding schema", sorted(missing))
-    cfg = Config(str(SERVICE_ROOT / "alembic.ini"))
-    cfg.set_main_option("script_location", str(SERVICE_ROOT / "alembic"))
-    cfg.set_main_option("sqlalchemy.url", str(engine.url))
 
     if inspect(engine).has_table("alembic_version"):
         logger.warning("Resetting alembic stamp (version row without tables)")

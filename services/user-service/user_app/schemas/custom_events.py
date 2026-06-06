@@ -1,7 +1,9 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+MAX_IMAGE_URL_LENGTH = 512_000
 
 
 class CustomEventCreateRequest(BaseModel):
@@ -23,6 +25,14 @@ class CustomEventCreateRequest(BaseModel):
     tickets: list[dict] = Field(default_factory=list)
     publish: bool = False
 
+    @field_validator("image_url")
+    @classmethod
+    def validate_image_url_length(cls, value: str | None) -> str | None:
+        if value is not None and len(value) > MAX_IMAGE_URL_LENGTH:
+            msg = "Cover image is too large; use a smaller photo."
+            raise ValueError(msg)
+        return value
+
 
 class CustomEventUpdateRequest(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=300)
@@ -42,6 +52,14 @@ class CustomEventUpdateRequest(BaseModel):
     lineup: list[dict] | None = None
     tickets: list[dict] | None = None
     publish: bool | None = None
+
+    @field_validator("image_url")
+    @classmethod
+    def validate_image_url_length(cls, value: str | None) -> str | None:
+        if value is not None and len(value) > MAX_IMAGE_URL_LENGTH:
+            msg = "Cover image is too large; use a smaller photo."
+            raise ValueError(msg)
+        return value
 
 
 class CustomEventResponse(BaseModel):

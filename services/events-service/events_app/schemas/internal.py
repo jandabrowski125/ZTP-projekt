@@ -51,6 +51,7 @@ class EventSchema(BaseModel):
     tickets: list[TicketSchema] = Field(default_factory=list)
     is_community_event: bool = False
     created_by: str | None = None
+    community_event_id: str | None = None
 
 
 class CategorySchema(BaseModel):
