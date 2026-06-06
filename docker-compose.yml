@@ -58,6 +58,7 @@ services:
       USER_SERVICE_PORT: "8002"
       DATABASE_URL: "postgresql+psycopg://eventradar:eventradar@postgres:5432/eventradar"
       JWT_SECRET: "${JWT_SECRET:-dev-change-me}"
+      FIREBASE_PROJECT_ID: "${FIREBASE_PROJECT_ID:-event-radar-a9c10}"
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-}
       DOCS_USERNAME: ${DOCS_USERNAME:-admin}
       DOCS_PASSWORD: ${DOCS_PASSWORD:-}

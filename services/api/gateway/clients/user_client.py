@@ -39,6 +39,15 @@ class UserServiceClient:
                 headers=self._merge_headers(headers),
             )
 
+    async def exchange_firebase_token(self, authorization: str) -> dict[str, Any]:
+        response = await self._request(
+            "POST",
+            "/internal/v1/auth/firebase",
+            headers={"Authorization": authorization},
+        )
+        response.raise_for_status()
+        return response.json()
+
     async def register(self, payload: dict[str, Any]) -> dict[str, Any]:
         response = await self._request("POST", "/internal/v1/auth/register", json=payload)
         response.raise_for_status()
