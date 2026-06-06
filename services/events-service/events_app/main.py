@@ -50,5 +50,10 @@ app.include_router(router)
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    provider = "ticketmaster" if settings.ticketmaster_api_key.strip() else "none"
+    providers = []
+    if settings.ticketmaster_api_key.strip():
+        providers.append("ticketmaster")
+    if settings.user_custom_events_enabled and settings.user_service_url.strip():
+        providers.append("custom")
+    provider = ",".join(providers) if providers else "none"
     return {"status": "ok", "service": "events-service", "provider": provider}

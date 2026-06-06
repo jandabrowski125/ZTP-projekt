@@ -12,14 +12,17 @@ Tani setup na projekt studencki / demo (bez realnego ruchu):
 ```
 Użytkownik
     │
-    ├─► https://app.pages.dev  (Cloudflare Pages — React)
+    ├─► https://eventradar.net.pl  (Cloudflare Worker + Vite SPA)
     │         │
-    │         └── fetch ──► https://api.twoja-domena.pl/api/v1/...
+    │         ├── /api/* ──► Worker proxy ──► https://api.twoja-domena.pl/api/...
+    │         └── /*     ──► statyczne assety (React)
     │
     └─► Hetzner VPS
             Caddy :443 ──► api :8000 (localhost)
             Docker: api, events-service, user-service, postgres
 ```
+
+Przeglądarka **nie** woła API cross-origin — tak jak w dev (`VITE_API_URL` puste → `/api/v1/...` na tej samej domenie co UI). Worker przekazuje te żądania na VPS.
 
 ---
 
@@ -100,6 +103,9 @@ TRUSTED_HOSTS=api.twoja-domena.pl
 TRUST_PROXY_HEADERS=1
 
 TICKETMASTER_API_KEY=<twój_klucz>
+
+# Community events w Explore/Map (includeCommunity=true)
+USER_CUSTOM_EVENTS_ENABLED=true
 ```
 
 ### Uruchom stack
@@ -137,7 +143,7 @@ curl -s https://api.twoja-domena.pl/health
 
 ## 5. Cloudflare — frontend (Workers Builds)
 
-Repo: **Tpfeventradar** (osobne od backendu). Frontend to statyczny Vite SPA z `frontend/wrangler.toml` (assets-only, bez Worker script).
+Repo: **Tpfeventradar** (osobne od backendu). Frontend to Vite SPA + **Worker** proxy `/api/*` → backend (`frontend/src/worker.ts`, `wrangler.toml`).
 
 ### W Cloudflare Dashboard
 
@@ -156,29 +162,36 @@ Repo: **Tpfeventradar** (osobne od backendu). Frontend to statyczny Vite SPA z `
 
 | Zmienna | Wartość |
 |---------|---------|
-| `VITE_API_URL` | `https://api.twoja-domena.pl` |
 | `VITE_DEFAULT_COORD_LAT` | `50.046943` |
 | `VITE_DEFAULT_COORD_LNG` | `19.997153` |
 
-5. Deploy.
+**Nie ustawiaj** `VITE_API_URL` w produkcji (puste = same-origin `/api/v1/...`). Worker przekierowuje `/api/*` na backend.
 
-Frontend woła API pod `VITE_API_URL/api/v1/...` (patrz `frontend/src/app/api/config.ts`).
+5. **Worker variable** (Settings → Variables, lub w `wrangler.toml` `[vars]`):
+
+| Zmienna | Wartość |
+|---------|---------|
+| `API_ORIGIN` | `https://api.twoja-domena.pl` |
+
+6. Deploy.
+
+Przeglądarka woła `https://twoja-domena.pl/api/v1/...`; Worker proxy → `API_ORIGIN/api/v1/...` (patrz `frontend/src/app/api/config.ts`).
 
 ### SPA routing
 
-`wrangler.toml` ustawia `not_found_handling = "single-page-application"` — odświeżanie na `/login`, `/map` itd. działa bez `_redirects` (ten plik jest tylko dla Cloudflare Pages i psuje deploy na Workers).
+SPA routing (`/login`, `/map`, odświeżanie strony) obsługuje `src/worker.ts` — `not_found_handling = "none"` w `wrangler.toml`, żeby brakujące `/assets/*.js` nie dostawały `index.html`.
 
-### Zaktualizuj CORS na backendzie
+### CORS na backendzie (opcjonalnie)
 
-Po pierwszym deployu Pages znasz URL, np. `https://eventradar-abc.pages.dev`:
+Przy proxy same-origin **CORS nie jest wymagany** dla ruchu z UI. `CORS_ORIGINS` nadal warto ustawić na origin frontu (np. `https://eventradar.net.pl`) na wypadek bezpośrednich wywołań API lub narzędzi deweloperskich:
 
 ```bash
 # na VPS w /opt/eventradar/.env
-CORS_ORIGINS=https://eventradar-abc.pages.dev
+CORS_ORIGINS=https://eventradar.net.pl
 docker compose -f docker-compose.hetzner.yml up -d api
 ```
 
-Przy własnej domenie na Pages dodaj ją po przecinku.
+Przy własnej domenie dodaj ją po przecinku. **Usuń** `VITE_API_URL` z Cloudflare, jeśli wcześniej było ustawione — inaczej frontend omija proxy i znowu wymaga poprawnego CORS.
 
 ---
 
@@ -223,11 +236,14 @@ Przychowuj poza VPS (Hetzner Storage Box, lokalnie).
 
 | Problem | Rozwiązanie |
 |---------|-------------|
-| CORS error w przeglądarce | `CORS_ORIGINS` musi **dokładnie** pasować do origin Pages (https, bez `/`) |
+| `failed to fetch` w UI, ale `curl https://api.../health` OK | Usuń `VITE_API_URL` z Cloudflare (frontend ma wołać `/api/v1/...` same-origin). Upewnij się, że Worker ma `API_ORIGIN=https://api...` i jest wdrożony (`src/worker.ts`). |
+| `Failed to fetch dynamically imported module` po deployu | Stary `index.html` w cache + nowe assety — **Purge Cache** w Cloudflare, Ctrl+Shift+R. Worker nie powinien zwracać `index.html` dla brakujących `/assets/*.js` (patrz `src/worker.ts`). |
+| CORS error w przeglądarce | Zwykle `VITE_API_URL` wskazuje bezpośrednio na API — usuń tę zmienną albo ustaw `CORS_ORIGINS` **dokładnie** na origin frontu (https, bez `/`) |
 | 502 z Caddy | `docker compose ... ps` — czy `api` healthy? `curl localhost:8000/health` |
 | `Production configuration invalid` | Sprawdź długość sekretów, `TRUSTED_HOSTS` ≠ `*` |
 | `Invalid host header` na `curl 127.0.0.1:8000` | Po `git pull` + rebuild OK; tymczasowo: `curl -H "Host: api.twoja-domena.pl" http://127.0.0.1:8000/health` |
 | Brak wydarzeń | `TICKETMASTER_API_KEY` w `.env`, restart `events-service` |
+| Community events nie w Explore/Map | `USER_CUSTOM_EVENTS_ENABLED=true` w `.env` + restart `events-service`. Sprawdź `docker compose ... exec events-service python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8001/health').read())"` → `"provider":"ticketmaster,custom"`. W profilu widać też **draft** — w Explore tylko **published**. |
 | Pages build fail | Zainstaluj Bun w buildzie lub przełącz na `npm run build` |
 
 ---
