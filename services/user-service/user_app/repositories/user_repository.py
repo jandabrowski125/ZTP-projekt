@@ -27,9 +27,11 @@ class UserRepository:
         location: str | None,
         avatar_url: str | None,
         preferences: dict,
+        firebase_uid: str | None = None,
     ) -> User:
         user = User(
             email=email.lower(),
+            firebase_uid=firebase_uid,
             password_hash=password_hash,
             username=username,
             full_name=full_name,
@@ -50,6 +52,16 @@ class UserRepository:
     def get_by_email(self, email: str) -> User | None:
         stmt = select(User).where(User.email == email.lower())
         return self._session.scalars(stmt).first()
+
+    def get_by_firebase_uid(self, firebase_uid: str) -> User | None:
+        stmt = select(User).where(User.firebase_uid == firebase_uid)
+        return self._session.scalars(stmt).first()
+
+    def link_firebase_uid(self, user: User, firebase_uid: str) -> User:
+        user.firebase_uid = firebase_uid
+        self._session.commit()
+        self._session.refresh(user)
+        return user
 
     def get_by_username(self, username: str) -> User | None:
         stmt = select(User).where(User.username == username)

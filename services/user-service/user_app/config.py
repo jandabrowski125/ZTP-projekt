@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24 * 7
 
+    # Firebase Auth — must match VITE_FIREBASE_PROJECT_ID on the frontend
+    firebase_project_id: str = "event-radar-a9c10"
+
     @property
     def is_production(self) -> bool:
         return self.app_env.lower() == "production"

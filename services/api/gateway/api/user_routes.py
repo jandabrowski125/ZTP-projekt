@@ -57,6 +57,23 @@ def _token_dto(raw: dict) -> TokenResponseDTO:
     )
 
 
+@router.post("/auth/firebase", response_model=TokenResponseDTO, response_model_by_alias=True)
+async def firebase_token_exchange(
+    client: Annotated[UserServiceClient, Depends(get_user_client)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> TokenResponseDTO:
+    """Exchange a Firebase ID token for an internal JWT session token."""
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Firebase ID token required in Authorization header",
+        )
+    try:
+        return _token_dto(await client.exchange_firebase_token(authorization))
+    except HTTPStatusError as exc:
+        raise _proxy_error(exc) from exc
+
+
 @router.post("/auth/register", response_model=TokenResponseDTO, response_model_by_alias=True)
 async def register(
     body: RegisterBody,

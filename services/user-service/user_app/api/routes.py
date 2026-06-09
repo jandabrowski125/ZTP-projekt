@@ -1,10 +1,21 @@
+import re as _re
 import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from user_app.api.deps import get_current_user, get_user_repository
+from fastapi.security import HTTPAuthorizationCredentials
+
+from user_app.api.auth_helpers import optional_firebase_claims
+from user_app.api.deps import bearer_scheme, get_current_user, get_user_repository
+from user_app.firebase_auth import (
+    FirebaseAuthError,
+    firebase_email_from_claims,
+    firebase_uid_from_claims,
+    is_firebase_configured,
+    verify_firebase_id_token,
+)
 from user_app.db.models import SavedEventListType, User
 from user_app.db.session import get_db
 from user_app.repositories.custom_event_repository import CustomEventRepository
@@ -24,9 +35,99 @@ from user_app.schemas.users import (
     UserPreferences,
     UserProfileResponse,
 )
-from user_app.security import create_access_token, hash_password, verify_password
+from user_app.security import create_access_token, generate_opaque_token, hash_password, verify_password
+from user_app.validation import validate_strong_password
 
 router = APIRouter(prefix="/internal/v1")
+
+
+def _unique_username(repo: UserRepository, base: str) -> str:
+    candidate = _re.sub(r"[^a-zA-Z0-9._-]", "_", base)[:60].strip("_") or "user"
+    suffix = 1
+    while repo.get_by_username(candidate) is not None:
+        candidate = f"{candidate[:55]}_{suffix}"
+        suffix += 1
+    return candidate
+
+
+@router.post("/auth/firebase", response_model=TokenResponse)
+def firebase_token_exchange(
+    repo: Annotated[UserRepository, Depends(get_user_repository)],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)] = None,
+) -> TokenResponse:
+    """Exchange a Firebase ID token for an internal JWT.
+
+    Called once after Firebase sign-in so that all subsequent API calls
+    use a standard short-lived JWT instead of repeating Firebase network
+    verification on every request.
+    """
+    from user_app.repositories.user_repository import preferences_to_dict
+
+    if not is_firebase_configured():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Firebase authentication is not configured on this server",
+        )
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Firebase ID token required in Authorization header",
+        )
+
+    try:
+        claims = verify_firebase_id_token(credentials.credentials)
+    except FirebaseAuthError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Firebase token invalid: {exc}",
+        ) from exc
+
+    firebase_uid = firebase_uid_from_claims(claims)
+    email = firebase_email_from_claims(claims)
+    if not firebase_uid or not email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Firebase token is missing uid or email claims",
+        )
+
+    # 1) Exact match by firebase_uid
+    user = repo.get_by_firebase_uid(firebase_uid)
+    if user is not None and user.is_active:
+        return TokenResponse(access_token=create_access_token(str(user.id)))
+
+    # 2) Match by email → link firebase_uid to existing account
+    user = repo.get_by_email(email)
+    if user is not None and user.is_active:
+        if user.firebase_uid is None:
+            user = repo.link_firebase_uid(user, firebase_uid)
+        return TokenResponse(access_token=create_access_token(str(user.id)))
+
+    # 3) Auto-provision a backend user for a Firebase-only account
+    display_name = (claims.get("name") or email.split("@")[0]).strip() or email.split("@")[0]
+    username = _unique_username(repo, email.split("@")[0])
+    photo_url = claims.get("picture") or None
+    try:
+        user = repo.create_user(
+            email=email,
+            firebase_uid=firebase_uid,
+            password_hash=hash_password(generate_opaque_token()),
+            username=username,
+            full_name=display_name,
+            bio=None,
+            location=None,
+            avatar_url=photo_url,
+            preferences=preferences_to_dict(None),
+        )
+    except UserAlreadyExistsError:
+        existing = repo.get_by_email(email) or repo.get_by_firebase_uid(firebase_uid)
+        if existing is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Account conflict during auto-provisioning",
+            ) from None
+        user = existing
+
+    return TokenResponse(access_token=create_access_token(str(user.id)))
 
 
 def _custom_event_response(event) -> CustomEventResponse:
@@ -70,12 +171,91 @@ def _profile_response(user: User) -> UserProfileResponse:
     )
 
 
+def _register_with_firebase(
+    body: RegisterRequest,
+    claims: dict,
+    repo: UserRepository,
+) -> TokenResponse:
+    from user_app.repositories.user_repository import preferences_to_dict
+
+    firebase_uid = firebase_uid_from_claims(claims)
+    firebase_email = firebase_email_from_claims(claims)
+    if not firebase_uid or not firebase_email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Firebase token",
+        )
+    if body.email.lower() != firebase_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email does not match Firebase account",
+        )
+
+    existing = repo.get_by_firebase_uid(firebase_uid)
+    if existing is not None:
+        return TokenResponse(access_token=create_access_token(str(existing.id)))
+
+    by_email = repo.get_by_email(body.email)
+    if by_email is not None:
+        if by_email.firebase_uid and by_email.firebase_uid != firebase_uid:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Email already registered",
+            )
+        linked = repo.link_firebase_uid(by_email, firebase_uid)
+        return TokenResponse(access_token=create_access_token(str(linked.id)))
+
+    if repo.get_by_username(body.username):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Username already taken",
+        )
+
+    try:
+        user = repo.create_user(
+            email=body.email,
+            firebase_uid=firebase_uid,
+            password_hash=hash_password(generate_opaque_token()),
+            username=body.username,
+            full_name=body.full_name,
+            bio=body.bio,
+            location=body.location,
+            avatar_url=body.avatar_url,
+            preferences=preferences_to_dict(body.preferences),
+        )
+    except UserAlreadyExistsError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email or username already registered",
+        ) from None
+    return TokenResponse(access_token=create_access_token(str(user.id)))
+
+
 @router.post("/auth/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 def register(
     body: RegisterRequest,
     repo: Annotated[UserRepository, Depends(get_user_repository)],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)] = None,
 ) -> TokenResponse:
     from user_app.repositories.user_repository import preferences_to_dict
+
+    firebase_claims = (
+        optional_firebase_claims(credentials.credentials)
+        if credentials is not None and credentials.scheme.lower() == "bearer"
+        else None
+    )
+    if firebase_claims is not None:
+        return _register_with_firebase(body, firebase_claims, repo)
+
+    if not body.password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password required",
+        )
+    try:
+        validate_strong_password(body.password)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
     if repo.get_by_email(body.email):
         raise HTTPException(
