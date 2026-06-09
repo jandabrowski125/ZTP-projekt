@@ -84,6 +84,8 @@ class CustomEventProvider:
             day_label=day_label,
             venue=raw.get("venue") or "",
             location=raw.get("location") or "",
+            address_line=raw.get("address_line") or "",
+            postal_code=raw.get("postal_code") or "",
             distance="",
             category=raw.get("category") or "All Events",
             category_color=raw.get("category_color") or "#7c3aed",

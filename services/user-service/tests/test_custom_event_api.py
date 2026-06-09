@@ -36,6 +36,31 @@ def _create_event_payload(**overrides):
     return payload
 
 
+def test_custom_event_persists_address_fields(api_client):
+    token = _register(api_client, email="addr@example.com", username="addruser")
+    create = api_client.post(
+        "/internal/v1/custom-events",
+        headers={"Authorization": f"Bearer {token}"},
+        json=_create_event_payload(
+            address_line="ul. Dolnych Młynów 10",
+            postal_code="31-001",
+        ),
+    )
+    assert create.status_code == 201
+    body = create.json()
+    assert body["address_line"] == "ul. Dolnych Młynów 10"
+    assert body["postal_code"] == "31-001"
+
+    event_id = body["id"]
+    listed = api_client.get(
+        "/internal/v1/custom-events/published",
+    )
+    assert listed.status_code == 200
+    published = next(item for item in listed.json() if item["id"] == event_id)
+    assert published["address_line"] == "ul. Dolnych Młynów 10"
+    assert published["postal_code"] == "31-001"
+
+
 def test_custom_event_update_and_delete_owner_only(api_client):
     owner_token = _register(api_client, email="owner2@example.com", username="owner2")
     other_token = _register(api_client, email="intruder@example.com", username="intruder")

@@ -40,6 +40,8 @@
     "venues": [
       {
         "name": "Madison Square Garden",
+        "postalCode": "10001",
+        "address": { "line1": "4 Pennsylvania Plaza" },
         "city": { "name": "New York" },
         "state": { "stateCode": "NY" },
         "location": { "latitude": "40.7505045", "longitude": "-73.9934387" },
