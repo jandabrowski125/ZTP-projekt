@@ -18,6 +18,8 @@ class EventDataDTO(BaseModel):
     day_label: str = Field(alias="dayLabel")
     venue: str
     location: str
+    address_line: str = Field(default="", alias="addressLine")
+    postal_code: str = Field(default="", alias="postalCode")
     distance: str
     category: str
     category_color: str = Field(alias="categoryColor")
@@ -44,12 +46,16 @@ class TicketDTO(BaseModel):
     sub: str
     price: str
     hover_color: str = Field(alias="hoverColor")
+    url: str = ""
 
 
 class EventDetailsDTO(EventDataDTO):
     description: str
     lineup: list[LineupArtistDTO] = Field(default_factory=list)
     tickets: list[TicketDTO] = Field(default_factory=list)
+    ticket_url: str = Field(default="", alias="ticketUrl")
+    provider: str = ""
+    external_id: str = Field(default="", alias="externalId")
     is_community_event: bool = Field(default=False, alias="isCommunityEvent")
     created_by: str | None = Field(default=None, alias="createdBy")
     community_event_id: str | None = Field(default=None, alias="communityEventId")
@@ -86,6 +92,8 @@ class CustomEventCreateBody(BaseModel):
     description: str | None = None
     venue: str
     location: str
+    address_line: str | None = Field(default=None, alias="addressLine")
+    postal_code: str | None = Field(default=None, alias="postalCode")
     lat: float
     lng: float
     category: str
@@ -108,6 +116,8 @@ class CustomEventUpdateBody(BaseModel):
     description: str | None = None
     venue: str | None = None
     location: str | None = None
+    address_line: str | None = Field(default=None, alias="addressLine")
+    postal_code: str | None = Field(default=None, alias="postalCode")
     lat: float | None = None
     lng: float | None = None
     category: str | None = None
@@ -133,6 +143,8 @@ class CustomEventResponseDTO(BaseModel):
     description: str | None = None
     venue: str
     location: str
+    address_line: str | None = Field(default=None, alias="addressLine")
+    postal_code: str | None = Field(default=None, alias="postalCode")
     lat: float
     lng: float
     category: str

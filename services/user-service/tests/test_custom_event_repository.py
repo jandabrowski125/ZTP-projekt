@@ -25,6 +25,8 @@ def test_create_custom_event(db_session):
         description="Weekly session",
         venue="Club X",
         location="Kraków",
+        address_line="ul. Floriańska 1",
+        postal_code="31-019",
         lat=50.05,
         lng=19.94,
         category="Music",
@@ -39,6 +41,8 @@ def test_create_custom_event(db_session):
         publish=True,
     )
     assert event.status.value == "published"
+    assert event.address_line == "ul. Floriańska 1"
+    assert event.postal_code == "31-019"
     mine = events.list_for_owner(owner.id)
     assert len(mine) == 1
     published = events.list_published()
@@ -65,6 +69,8 @@ def _create_event_for_owner(db_session, *, email: str, username: str):
         description="Desc",
         venue="Club",
         location="Kraków",
+        address_line=None,
+        postal_code=None,
         lat=50.05,
         lng=19.94,
         category="Music",

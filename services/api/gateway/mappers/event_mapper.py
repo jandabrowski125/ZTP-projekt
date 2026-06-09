@@ -22,6 +22,8 @@ def to_event_data_dto(raw: dict[str, Any]) -> EventDataDTO:
         dayLabel=raw["day_label"],
         venue=raw["venue"],
         location=raw["location"],
+        addressLine=raw.get("address_line") or "",
+        postalCode=raw.get("postal_code") or "",
         distance=raw["distance"],
         category=raw["category"],
         categoryColor=raw["category_color"],
@@ -38,6 +40,9 @@ def to_event_details_dto(raw: dict[str, Any]) -> EventDetailsDTO:
         description=raw["description"],
         lineup=[_lineup_item(item) for item in raw.get("lineup", [])],
         tickets=[_ticket_item(item) for item in raw.get("tickets", [])],
+        ticketUrl=raw.get("ticket_url") or "",
+        provider=raw.get("provider") or "",
+        externalId=raw.get("external_id") or "",
         isCommunityEvent=raw.get("is_community_event", False),
         createdBy=raw.get("created_by"),
         communityEventId=raw.get("community_event_id"),
@@ -78,6 +83,7 @@ def _ticket_item(raw: dict[str, Any]) -> TicketDTO:
         sub=raw["sub"],
         price=raw["price"],
         hoverColor=raw["hover_color"],
+        url=raw.get("url") or "",
     )
 
 
@@ -94,6 +100,8 @@ def to_custom_event_dto(raw: dict[str, Any]) -> CustomEventResponseDTO:
         description=raw.get("description"),
         venue=raw["venue"],
         location=raw["location"],
+        addressLine=raw.get("address_line"),
+        postalCode=raw.get("postal_code"),
         lat=raw["lat"],
         lng=raw["lng"],
         category=raw["category"],

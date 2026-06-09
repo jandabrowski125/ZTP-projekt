@@ -256,6 +256,8 @@ async def create_custom_event(
         "description": body.description,
         "venue": body.venue,
         "location": body.location,
+        "address_line": body.address_line,
+        "postal_code": body.postal_code,
         "lat": body.lat,
         "lng": body.lng,
         "category": body.category,

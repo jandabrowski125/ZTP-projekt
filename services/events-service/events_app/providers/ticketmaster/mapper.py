@@ -27,15 +27,16 @@ def map_ticketmaster_event(
     short_title = _short_title(name)
 
     event_date, month, day, time_str, day_label = _parse_dates(raw)
-    venue, location, lat, lng, distance = _parse_venue(raw)
+    venue, location, address_line, postal_code, lat, lng, distance = _parse_venue(raw)
     category, pin_category = _parse_category(raw)
     category_color = CATEGORY_COLORS.get(category, "#7c3aed")
     image = _pick_image(raw)
-    price = _format_list_price(raw)
+    ticket_url = str(raw.get("url") or "")
+    price = _format_list_price(raw, ticket_url=ticket_url)
     tags = _build_tags(raw, category)
     description = _parse_description(raw)
     lineup = _parse_lineup(raw)
-    tickets = _parse_tickets(raw)
+    tickets = _parse_tickets(raw, ticket_url=ticket_url, list_price=price)
 
     return Event(
         id=public_id,
@@ -47,6 +48,8 @@ def map_ticketmaster_event(
         day_label=day_label,
         venue=venue,
         location=location,
+        address_line=address_line,
+        postal_code=postal_code,
         distance=distance,
         category=category,
         category_color=category_color,
@@ -61,6 +64,9 @@ def map_ticketmaster_event(
         description=description,
         lineup=lineup,
         tickets=tickets,
+        ticket_url=ticket_url,
+        provider=provider,
+        external_id=external_id,
     )
 
 
@@ -108,7 +114,7 @@ def _parse_dates(raw: dict[str, Any]) -> tuple[date, str, str, str, str]:
     return event_date, month, day, time_str, day_label
 
 
-def _parse_venue(raw: dict[str, Any]) -> tuple[str, str, float, float, str]:
+def _parse_venue(raw: dict[str, Any]) -> tuple[str, str, str, str, float, float, str]:
     embedded = raw.get("_embedded") or {}
     venues = embedded.get("venues") or []
     venue_raw = venues[0] if venues else {}
@@ -116,7 +122,22 @@ def _parse_venue(raw: dict[str, Any]) -> tuple[str, str, float, float, str]:
     venue_name = venue_raw.get("name") or md.NO_VENUE
     city = (venue_raw.get("city") or {}).get("name") or ""
     state = (venue_raw.get("state") or {}).get("stateCode") or ""
-    location = ", ".join(part for part in (city, state) if part) or md.NO_LOCATION
+    country = (venue_raw.get("country") or {}).get("name") or ""
+    country_code = (venue_raw.get("country") or {}).get("countryCode") or ""
+    if city and state:
+        location = f"{city}, {state}"
+    elif city and country_code and country_code != "US":
+        location = f"{city}, {country}" if country else city
+    elif city:
+        location = city
+    else:
+        location = md.NO_LOCATION
+
+    address = venue_raw.get("address") or {}
+    line1 = str(address.get("line1") or "").strip()
+    line2 = str(address.get("line2") or "").strip()
+    address_line = ", ".join(part for part in (line1, line2) if part)
+    postal_code = str(venue_raw.get("postalCode") or "").strip()
 
     loc = venue_raw.get("location") or {}
     try:
@@ -135,7 +156,7 @@ def _parse_venue(raw: dict[str, Any]) -> tuple[str, str, float, float, str]:
     else:
         distance = md.NO_DISTANCE
 
-    return venue_name, location, lat, lng, distance
+    return venue_name, location, address_line, postal_code, lat, lng, distance
 
 
 def _parse_category(raw: dict[str, Any]) -> tuple[str, MapPinCategory]:
@@ -180,25 +201,43 @@ def _pick_image(raw: dict[str, Any]) -> str:
     return DEFAULT_IMAGE
 
 
-def _format_list_price(raw: dict[str, Any]) -> str:
-    ranges = raw.get("priceRanges") or []
-    if not ranges:
-        return md.NO_PRICE
+def _format_amount(value: float | int, currency: str) -> str:
+    amount = int(value) if float(value).is_integer() else round(float(value), 2)
+    if currency == "USD":
+        return f"${amount}"
+    if currency == "EUR":
+        return f"€{amount}"
+    if currency == "GBP":
+        return f"£{amount}"
+    if currency == "PLN":
+        return f"{amount} zł"
+    return f"{amount} {currency}"
 
-    first = ranges[0]
-    currency = first.get("currency") or "USD"
-    min_price = first.get("min")
-    max_price = first.get("max")
 
+def _format_price_range(min_price: float | int | None, max_price: float | int | None, currency: str) -> str:
     if min_price is None and max_price is None:
         return md.NO_PRICE
     if min_price == 0 and max_price == 0:
         return "Free"
-    if min_price == max_price and min_price is not None:
-        return f"${int(min_price)}" if currency == "USD" else f"{min_price} {currency}"
     if min_price is not None and max_price is not None:
-        return f"${int(min_price)}–${int(max_price)}"
+        if min_price == max_price:
+            return _format_amount(min_price, currency)
+        return f"{_format_amount(min_price, currency)}–{_format_amount(max_price, currency)}"
+    if min_price is not None:
+        return f"from {_format_amount(min_price, currency)}"
+    if max_price is not None:
+        return f"up to {_format_amount(max_price, currency)}"
     return md.NO_PRICE
+
+
+def _format_list_price(raw: dict[str, Any], *, ticket_url: str = "") -> str:
+    ranges = raw.get("priceRanges") or []
+    if not ranges:
+        return "See Ticketmaster" if ticket_url else md.NO_PRICE
+
+    first = ranges[0]
+    currency = str(first.get("currency") or "USD").upper()
+    return _format_price_range(first.get("min"), first.get("max"), currency)
 
 
 def _build_tags(raw: dict[str, Any], category: str) -> tuple[str, ...]:
@@ -250,22 +289,21 @@ def _parse_lineup(raw: dict[str, Any]) -> tuple[LineupArtist, ...]:
     return tuple(artists)
 
 
-def _parse_tickets(raw: dict[str, Any]) -> tuple[Ticket, ...]:
+def _parse_tickets(
+    raw: dict[str, Any],
+    *,
+    ticket_url: str = "",
+    list_price: str = md.NO_PRICE,
+) -> tuple[Ticket, ...]:
     tickets: list[Ticket] = []
     ranges = raw.get("priceRanges") or []
 
     for index, price_range in enumerate(ranges):
         min_price = price_range.get("min")
         max_price = price_range.get("max")
-        currency = price_range.get("currency") or "USD"
+        currency = str(price_range.get("currency") or "USD").upper()
         type_name = str(price_range.get("type") or "standard").replace("_", " ").title()
-
-        if min_price is None and max_price is None:
-            price_label = md.NO_PRICE
-        elif min_price == max_price:
-            price_label = f"${int(min_price)}" if min_price is not None else md.NO_PRICE
-        else:
-            price_label = f"${int(min_price)}–${int(max_price)}"
+        price_label = _format_price_range(min_price, max_price, currency)
 
         icon_colors = ["#89ceff", "#d2bbff", "#ffb784"]
         tickets.append(
@@ -273,22 +311,23 @@ def _parse_tickets(raw: dict[str, Any]) -> tuple[Ticket, ...]:
                 icon="local_activity",
                 icon_color=icon_colors[index % len(icon_colors)],
                 name=type_name or md.NO_TICKET_TYPE,
-                sub=md.NO_TICKET,
-                price=price_label if currency == "USD" else f"{price_label} {currency}",
+                sub="Available on Ticketmaster",
+                price=price_label,
                 hover_color=icon_colors[index % len(icon_colors)],
+                url=ticket_url,
             )
         )
 
-    url = raw.get("url")
-    if url and not tickets:
+    if ticket_url and not tickets:
         tickets.append(
             Ticket(
                 icon="local_activity",
                 icon_color="#89ceff",
                 name="Tickets",
                 sub="Available on Ticketmaster",
-                price=md.NO_PRICE,
+                price=list_price if list_price != md.NO_PRICE else "See Ticketmaster",
                 hover_color="#89ceff",
+                url=ticket_url,
             )
         )
 

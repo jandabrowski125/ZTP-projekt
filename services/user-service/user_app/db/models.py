@@ -121,6 +121,8 @@ class CustomEvent(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     venue: Mapped[str] = mapped_column(String(300), nullable=False)
     location: Mapped[str] = mapped_column(String(300), nullable=False)
+    address_line: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    postal_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
     lat: Mapped[float] = mapped_column(Float, nullable=False)
     lng: Mapped[float] = mapped_column(Float, nullable=False)
     category: Mapped[str] = mapped_column(String(80), nullable=False)
