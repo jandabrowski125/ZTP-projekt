@@ -1,12 +1,13 @@
 """Tests for gateway user routes: favorites and past-events endpoints."""
-from unittest.mock import AsyncMock, patch
-from uuid import UUID, uuid4
+from unittest.mock import AsyncMock
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 from httpx import HTTPStatusError, Request, Response
 
-from gateway.api.user_routes import get_user_client
+from gateway.api.user_routes import get_events_client, get_user_client
+from gateway.clients.events_client import EventsServiceClient
 from gateway.clients.user_client import UserServiceClient
 from gateway.main import app
 
@@ -39,7 +40,28 @@ _AUTH = "Bearer test-token"
 @pytest.fixture
 def mock_user_client() -> UserServiceClient:
     client = AsyncMock(spec=UserServiceClient)
-    client.list_favorites.return_value = [_SAVED_RAW]
+    client.list_favorites.return_value = [
+        {
+            **_SAVED_RAW,
+            "event_snapshot": {
+                "id": 42,
+                "title": "Sample",
+                "short_title": "Sample",
+                "month": "JUL",
+                "day": "1",
+                "time": "20:00",
+                "day_label": "Tue",
+                "venue": "Arena",
+                "location": "Kraków",
+                "distance": "2 km",
+                "category": "Music",
+                "category_color": "#7c3aed",
+                "price": "Free",
+                "image": "https://example.com/img.jpg",
+                "tags": [],
+            },
+        }
+    ]
     client.add_favorite.return_value = _SAVED_RAW
     client.remove_favorite.return_value = None
     client.list_past_events.return_value = [_PAST_RAW]
@@ -48,8 +70,32 @@ def mock_user_client() -> UserServiceClient:
 
 
 @pytest.fixture
-def client(mock_user_client: UserServiceClient):
+def mock_events_client() -> EventsServiceClient:
+    client = AsyncMock(spec=EventsServiceClient)
+    client.get_event.return_value = {
+        "id": 42,
+        "title": "Sample",
+        "short_title": "Sample",
+        "month": "JUL",
+        "day": "1",
+        "time": "20:00",
+        "day_label": "Tue",
+        "venue": "Arena",
+        "location": "Kraków",
+        "distance": "2 km",
+        "category": "Music",
+        "category_color": "#7c3aed",
+        "price": "Free",
+        "image": "https://example.com/img.jpg",
+        "tags": [],
+    }
+    return client
+
+
+@pytest.fixture
+def client(mock_user_client: UserServiceClient, mock_events_client: EventsServiceClient):
     app.dependency_overrides[get_user_client] = lambda: mock_user_client
+    app.dependency_overrides[get_events_client] = lambda: mock_events_client
     yield TestClient(app)
     app.dependency_overrides.clear()
 
@@ -58,10 +104,8 @@ def test_list_favorites_returns_camel_case(client: TestClient):
     response = client.get("/api/v1/users/me/favorites", headers={"Authorization": _AUTH})
     assert response.status_code == 200
     body = response.json()
-    assert isinstance(body, list)
-    assert body[0]["listType"] == "favorite"
-    assert body[0]["publicEventId"] == 42
-    assert body[0]["externalId"] == "TM_001"
+    assert isinstance(body, dict)
+    assert body["items"][0]["id"] == 42
 
 
 def test_list_favorites_requires_auth(client: TestClient):

@@ -151,6 +151,7 @@ def _custom_event_response(event) -> CustomEventResponse:
         tags=event.tags,
         starts_at=event.starts_at,
         ends_at=event.ends_at,
+        event_timezone=event.event_timezone,
         status=event.status.value if hasattr(event.status, "value") else str(event.status),
         lineup=event.lineup,
         tickets=event.tickets,

@@ -18,7 +18,7 @@ class EventsServiceClient:
         self._timeout = timeout
         self._internal_headers = internal_auth_headers(internal_token)
 
-    async     def list_events(
+    async def list_events(
         self,
         *,
         category: str | None = None,

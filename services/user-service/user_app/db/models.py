@@ -28,7 +28,14 @@ class CustomEventStatus(str, enum.Enum):
 
 class SavedEventListType(str, enum.Enum):
     FAVORITE = "favorite"
+    ENROLLED = "enrolled"
     PAST = "past"
+
+
+class NotificationType(str, enum.Enum):
+    EVENT_REMINDER = "event_reminder"
+    EVENT_UPDATED = "event_updated"
+    SYSTEM = "system"
 
 
 class User(Base):
@@ -59,6 +66,8 @@ class User(Base):
 
     saved_events: Mapped[list["UserSavedEvent"]] = relationship(back_populates="user")
     custom_events: Mapped[list["CustomEvent"]] = relationship(back_populates="owner")
+    notifications: Mapped[list["UserNotification"]] = relationship(back_populates="user")
+    event_reminders: Mapped[list["UserEventReminder"]] = relationship(back_populates="user")
 
 
 class UserSavedEvent(Base):
@@ -132,6 +141,7 @@ class CustomEvent(Base):
     tags: Mapped[list] = mapped_column(JSONB, nullable=False, server_default="[]")
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    event_timezone: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[CustomEventStatus] = mapped_column(
         Enum(CustomEventStatus, name="custom_event_status", native_enum=False),
         nullable=False,
@@ -151,3 +161,67 @@ class CustomEvent(Base):
 
     owner: Mapped["User"] = relationship(back_populates="custom_events")
     saved_links: Mapped[list["UserSavedEvent"]] = relationship(back_populates="custom_event")
+
+
+class UserEventReminder(Base):
+    """Tracks per-event reminder subscriptions (24h / 6h / 1h before start)."""
+
+    __tablename__ = "user_event_reminders"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "public_event_id",
+            "provider",
+            "external_id",
+            name="uq_user_event_reminder_aggregated",
+        ),
+        UniqueConstraint("user_id", "custom_event_id", name="uq_user_event_reminder_custom"),
+        Index("ix_user_event_reminders_user", "user_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    public_event_id: Mapped[int] = mapped_column(nullable=False)
+    provider: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    external_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    custom_event_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("custom_events.id", ondelete="CASCADE"), nullable=True
+    )
+    event_title: Mapped[str] = mapped_column(String(300), nullable=False)
+    event_starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    user: Mapped["User"] = relationship(back_populates="event_reminders")
+
+
+class UserNotification(Base):
+    """In-app notifications (event reminders and system messages)."""
+
+    __tablename__ = "user_notifications"
+    __table_args__ = (Index("ix_user_notifications_user_scheduled", "user_id", "scheduled_for"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    type: Mapped[NotificationType] = mapped_column(
+        Enum(NotificationType, name="notification_type", native_enum=False),
+        nullable=False,
+    )
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    body: Mapped[str] = mapped_column(String(500), nullable=False)
+    public_event_id: Mapped[int | None] = mapped_column(nullable=True)
+    community_event_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    event_title: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    changed_fields: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    scheduled_for: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    read: Mapped[bool] = mapped_column(default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    user: Mapped["User"] = relationship(back_populates="notifications")

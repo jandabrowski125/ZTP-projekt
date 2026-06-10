@@ -26,6 +26,8 @@ class EventDataDTO(BaseModel):
     price: str
     image: str
     tags: list[str]
+    starts_at: str | None = Field(default=None, alias="startsAt")
+    event_timezone: str | None = Field(default=None, alias="eventTimezone")
 
 
 class LineupArtistDTO(BaseModel):
@@ -154,6 +156,7 @@ class CustomEventResponseDTO(BaseModel):
     tags: list = Field(default_factory=list)
     starts_at: str = Field(alias="startsAt")
     ends_at: str | None = Field(default=None, alias="endsAt")
+    event_timezone: str | None = Field(default=None, alias="eventTimezone")
     status: str
     lineup: list = Field(default_factory=list)
     tickets: list = Field(default_factory=list)
