@@ -80,6 +80,19 @@ def mock_user_client() -> UserServiceClient:
     client.mark_notification_read.return_value = None
     client.mark_all_notifications_read.return_value = None
     client.clear_all_notifications.return_value = None
+    client.list_past_events.return_value = [{"id": "past-1"}, {"id": "past-2"}]
+    client.list_enrolled.return_value = [
+        {
+            "id": str(uuid4()),
+            "list_type": "enrolled",
+            "public_event_id": _EVENT_ID,
+            "provider": "ticketmaster",
+            "external_id": "TM_001",
+            "custom_event_id": None,
+            "event_snapshot": None,
+            "attended_at": None,
+        }
+    ]
     return client
 
 
@@ -162,6 +175,21 @@ def test_list_notifications_returns_camel_case(client: TestClient, mock_user_cli
     assert item["changedFields"] == ["time", "venue"]
 
 
+def test_profile_stats_returns_counts(
+    client: TestClient,
+    mock_events_client: EventsServiceClient,
+):
+    from datetime import UTC, datetime, timedelta
+
+    future = (datetime.now(UTC) + timedelta(days=2)).isoformat()
+    mock_events_client.get_event.return_value = {**_EVENT_RAW, "starts_at": future}
+    response = client.get("/api/v1/users/me/profile-stats", headers={"Authorization": _AUTH})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["eventsAttended"] == 2
+    assert body["upcoming"] == 1
+
+
 def test_clear_notifications_returns_204(
     client: TestClient,
     mock_user_client: UserServiceClient,
@@ -177,5 +205,6 @@ def test_clear_notifications_returns_204(
 def test_engagement_routes_require_auth(client: TestClient):
     assert client.get("/api/v1/users/me/enrolled").status_code == 401
     assert client.get("/api/v1/users/me/notifications").status_code == 401
+    assert client.get("/api/v1/users/me/profile-stats").status_code == 401
     assert client.delete("/api/v1/users/me/notifications").status_code == 401
     assert client.get(f"/api/v1/users/me/event-actions?eventId={_EVENT_ID}").status_code == 401

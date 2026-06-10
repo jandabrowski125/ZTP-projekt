@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -21,7 +22,14 @@ from gateway.dto.user_events import (
     ReminderBody,
     SavedEventsListDTO,
 )
-from gateway.dto.users import SavedEventDTO, SaveEventBody, TokenResponseDTO, UpdateProfileBody, UserProfileDTO
+from gateway.dto.users import (
+    ProfileStatsDTO,
+    SavedEventDTO,
+    SaveEventBody,
+    TokenResponseDTO,
+    UpdateProfileBody,
+    UserProfileDTO,
+)
 from gateway.mappers.event_mapper import to_custom_event_dto, to_event_data_dto
 from gateway.mappers.user_events_mapper import to_event_action_status_dto, to_notification_dto
 from gateway.mappers.user_mapper import to_saved_event_dto, to_user_profile_dto, update_body_to_snake
@@ -65,6 +73,28 @@ async def _saved_rows_to_items(
         except HTTPStatusError:
             continue
     return items
+
+
+def _parse_starts_at(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _count_upcoming_events(items: list[EventDataDTO]) -> int:
+    now = datetime.now(UTC)
+    count = 0
+    for item in items:
+        starts_at = _parse_starts_at(item.starts_at)
+        if starts_at is not None and starts_at > now:
+            count += 1
+    return count
 
 
 class RegisterBody(BaseModel):
@@ -177,6 +207,25 @@ async def update_me(
     try:
         raw = await client.update_me(authorization, payload)
         return to_user_profile_dto(raw)
+    except HTTPStatusError as exc:
+        raise _proxy_error(exc) from exc
+
+
+@router.get("/users/me/profile-stats", response_model=ProfileStatsDTO, response_model_by_alias=True)
+async def get_profile_stats(
+    client: Annotated[UserServiceClient, Depends(get_user_client)],
+    events_client: Annotated[EventsServiceClient, Depends(get_events_client)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> ProfileStatsDTO:
+    auth = _require_auth(authorization)
+    try:
+        past_rows = await client.list_past_events(auth)
+        enrolled_rows = await client.list_enrolled(auth)
+        enrolled_items = await _saved_rows_to_items(enrolled_rows, events_client)
+        return ProfileStatsDTO(
+            eventsAttended=len(past_rows),
+            upcoming=_count_upcoming_events(enrolled_items),
+        )
     except HTTPStatusError as exc:
         raise _proxy_error(exc) from exc
 

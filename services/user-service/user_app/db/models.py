@@ -51,7 +51,7 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(200), nullable=False)
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
     location: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    avatar_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     preferences: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
