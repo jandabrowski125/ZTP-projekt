@@ -168,6 +168,7 @@ def _profile_response(user: User) -> UserProfileResponse:
         bio=user.bio,
         location=user.location,
         avatar_url=user.avatar_url,
+        created_at=user.created_at,
         preferences=UserPreferences.model_validate(
             {**UserPreferences().model_dump(), **prefs},
         ),
