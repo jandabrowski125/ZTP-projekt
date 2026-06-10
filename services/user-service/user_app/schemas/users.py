@@ -1,7 +1,9 @@
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+MAX_AVATAR_URL_LENGTH = 512_000
 
 
 class UserPreferences(BaseModel):
@@ -19,8 +21,16 @@ class RegisterRequest(BaseModel):
     full_name: str = Field(min_length=1, max_length=200)
     bio: str | None = Field(default=None, max_length=2000)
     location: str | None = Field(default=None, max_length=200)
-    avatar_url: str | None = Field(default=None, max_length=2048)
+    avatar_url: str | None = None
     preferences: UserPreferences | None = None
+
+    @field_validator("avatar_url")
+    @classmethod
+    def validate_avatar_url_length(cls, value: str | None) -> str | None:
+        if value is not None and len(value) > MAX_AVATAR_URL_LENGTH:
+            msg = "Profile photo is too large; use a smaller image."
+            raise ValueError(msg)
+        return value
 
 
 class LoginRequest(BaseModel):
@@ -44,14 +54,23 @@ class UserProfileResponse(BaseModel):
     location: str | None
     avatar_url: str | None
     preferences: UserPreferences
+    created_at: datetime
 
 
 class UpdateProfileRequest(BaseModel):
     full_name: str | None = Field(default=None, max_length=200)
     bio: str | None = Field(default=None, max_length=2000)
     location: str | None = Field(default=None, max_length=200)
-    avatar_url: str | None = Field(default=None, max_length=2048)
+    avatar_url: str | None = None
     preferences: UserPreferences | None = None
+
+    @field_validator("avatar_url")
+    @classmethod
+    def validate_avatar_url_length(cls, value: str | None) -> str | None:
+        if value is not None and len(value) > MAX_AVATAR_URL_LENGTH:
+            msg = "Profile photo is too large; use a smaller image."
+            raise ValueError(msg)
+        return value
 
 
 class SaveAggregatedEventRequest(BaseModel):

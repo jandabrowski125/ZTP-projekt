@@ -11,6 +11,7 @@ def to_user_profile_dto(raw: dict) -> UserProfileDTO:
         bio=raw.get("bio"),
         location=raw.get("location"),
         avatarUrl=raw.get("avatar_url"),
+        createdAt=raw["created_at"],
         preferences=UserPreferencesDTO(
             eventReminders=prefs.get("event_reminders", True),
             newEvents=prefs.get("new_events", True),
