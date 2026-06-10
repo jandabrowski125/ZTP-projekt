@@ -16,6 +16,9 @@ dependencies = [
     "alembic>=1.14.0",
     "passlib[bcrypt]>=1.7.4",
     "PyJWT>=2.10.0",
+    "google-auth>=2.36.0",
+    "requests>=2.32.0",
+    "timezonefinder>=6.5.0",
 ]
 
 [project.optional-dependencies]

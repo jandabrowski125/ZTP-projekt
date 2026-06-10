@@ -1,4 +1,3 @@
-import uuid
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
@@ -7,8 +6,8 @@ from sqlalchemy.orm import Session
 
 from user_app.db.models import User
 from user_app.db.session import get_db
+from user_app.api.auth_helpers import resolve_user_from_bearer_token
 from user_app.repositories.user_repository import UserRepository
-from user_app.security import decode_access_token
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -25,10 +24,7 @@ def get_current_user(
 ) -> User:
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
-    user_id = decode_access_token(credentials.credentials)
-    if user_id is None:
+    user = resolve_user_from_bearer_token(credentials.credentials, repo)
+    if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-    user = repo.get_by_id(uuid.UUID(user_id))
-    if user is None or not user.is_active:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     return user

@@ -1,9 +1,9 @@
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-from user_app.validation import validate_strong_password
+MAX_AVATAR_URL_LENGTH = 512_000
 
 
 class UserPreferences(BaseModel):
@@ -16,18 +16,21 @@ class UserPreferences(BaseModel):
 
 class RegisterRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
+    password: str | None = Field(default=None, max_length=128)
     username: str = Field(min_length=3, max_length=64, pattern=r"^[a-zA-Z0-9._-]+$")
     full_name: str = Field(min_length=1, max_length=200)
     bio: str | None = Field(default=None, max_length=2000)
     location: str | None = Field(default=None, max_length=200)
-    avatar_url: str | None = Field(default=None, max_length=2048)
+    avatar_url: str | None = None
     preferences: UserPreferences | None = None
 
-    @field_validator("password")
+    @field_validator("avatar_url")
     @classmethod
-    def password_strength(cls, value: str) -> str:
-        return validate_strong_password(value)
+    def validate_avatar_url_length(cls, value: str | None) -> str | None:
+        if value is not None and len(value) > MAX_AVATAR_URL_LENGTH:
+            msg = "Profile photo is too large; use a smaller image."
+            raise ValueError(msg)
+        return value
 
 
 class LoginRequest(BaseModel):
@@ -51,14 +54,23 @@ class UserProfileResponse(BaseModel):
     location: str | None
     avatar_url: str | None
     preferences: UserPreferences
+    created_at: datetime
 
 
 class UpdateProfileRequest(BaseModel):
     full_name: str | None = Field(default=None, max_length=200)
     bio: str | None = Field(default=None, max_length=2000)
     location: str | None = Field(default=None, max_length=200)
-    avatar_url: str | None = Field(default=None, max_length=2048)
+    avatar_url: str | None = None
     preferences: UserPreferences | None = None
+
+    @field_validator("avatar_url")
+    @classmethod
+    def validate_avatar_url_length(cls, value: str | None) -> str | None:
+        if value is not None and len(value) > MAX_AVATAR_URL_LENGTH:
+            msg = "Profile photo is too large; use a smaller image."
+            raise ValueError(msg)
+        return value
 
 
 class SaveAggregatedEventRequest(BaseModel):

@@ -11,7 +11,16 @@ RUN pip install --no-cache-dir \
     "uvicorn[standard]>=0.32.0" \
     "httpx>=0.28.0" \
     "pydantic[email]>=2.10.0" \
-    "pydantic-settings>=2.6.0"
+    "pydantic-settings>=2.6.0" \
+    "sqlalchemy>=2.0.36" \
+    "psycopg[binary]>=3.2.0" \
+    "psycopg2-binary>=2.9.0" \
+    "alembic>=1.14.0" \
+    "passlib[bcrypt]>=1.7.4" \
+    "PyJWT>=2.10.0" \
+    "google-auth>=2.36.0" \
+    "firebase-admin>=7.4.0" \
+    "requests>=2.32.0"
 
 ENV PYTHONPATH=/app/services/api:/app/services/common
 ENV API_HOST=0.0.0.0

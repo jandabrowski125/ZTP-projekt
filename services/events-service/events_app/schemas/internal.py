@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -21,6 +21,7 @@ class TicketSchema(BaseModel):
     sub: str
     price: str
     hover_color: str
+    url: str = ""
 
 
 class EventSchema(BaseModel):
@@ -49,9 +50,16 @@ class EventSchema(BaseModel):
     description: str
     lineup: list[LineupArtistSchema] = Field(default_factory=list)
     tickets: list[TicketSchema] = Field(default_factory=list)
+    address_line: str = ""
+    postal_code: str = ""
+    ticket_url: str = ""
+    provider: str = ""
+    external_id: str = ""
     is_community_event: bool = False
     created_by: str | None = None
     community_event_id: str | None = None
+    starts_at: datetime | None = None
+    event_timezone: str | None = None
 
 
 class CategorySchema(BaseModel):

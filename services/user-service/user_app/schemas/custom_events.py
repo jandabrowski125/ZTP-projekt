@@ -12,6 +12,8 @@ class CustomEventCreateRequest(BaseModel):
     description: str | None = None
     venue: str = Field(min_length=1, max_length=300)
     location: str = Field(min_length=1, max_length=300)
+    address_line: str | None = Field(default=None, max_length=300)
+    postal_code: str | None = Field(default=None, max_length=32)
     lat: float = Field(ge=-90, le=90)
     lng: float = Field(ge=-180, le=180)
     category: str = Field(min_length=1, max_length=80)
@@ -40,6 +42,8 @@ class CustomEventUpdateRequest(BaseModel):
     description: str | None = None
     venue: str | None = Field(default=None, min_length=1, max_length=300)
     location: str | None = Field(default=None, min_length=1, max_length=300)
+    address_line: str | None = Field(default=None, max_length=300)
+    postal_code: str | None = Field(default=None, max_length=32)
     lat: float | None = Field(default=None, ge=-90, le=90)
     lng: float | None = Field(default=None, ge=-180, le=180)
     category: str | None = Field(default=None, min_length=1, max_length=80)
@@ -73,6 +77,8 @@ class CustomEventResponse(BaseModel):
     description: str | None
     venue: str
     location: str
+    address_line: str | None = None
+    postal_code: str | None = None
     lat: float
     lng: float
     category: str
@@ -82,6 +88,7 @@ class CustomEventResponse(BaseModel):
     tags: list
     starts_at: datetime
     ends_at: datetime | None
+    event_timezone: str | None = None
     status: str
     lineup: list
     tickets: list

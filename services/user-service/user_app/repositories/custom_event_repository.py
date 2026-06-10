@@ -3,7 +3,16 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
+from eventradar_common.timezone_utils import timezone_at
+
 from user_app.db.models import CustomEvent, CustomEventStatus
+from user_app.services.custom_event_notifications import (
+    notify_users_of_event_update,
+    snapshot_custom_event,
+)
+from user_app.services.event_change_fields import detect_custom_event_changes
+from user_app.services.event_cleanup_service import cleanup_custom_event_references
+from user_app.services import reminder_service
 
 
 class CustomEventRepository:
@@ -19,6 +28,8 @@ class CustomEventRepository:
         description: str | None,
         venue: str,
         location: str,
+        address_line: str | None,
+        postal_code: str | None,
         lat: float,
         lng: float,
         category: str,
@@ -39,6 +50,8 @@ class CustomEventRepository:
             description=description,
             venue=venue,
             location=location,
+            address_line=address_line,
+            postal_code=postal_code,
             lat=lat,
             lng=lng,
             category=category,
@@ -48,6 +61,7 @@ class CustomEventRepository:
             tags=tags,
             starts_at=starts_at,
             ends_at=ends_at,
+            event_timezone=timezone_at(lat, lng),
             lineup=lineup,
             tickets=tickets,
             status=CustomEventStatus.PUBLISHED if publish else CustomEventStatus.DRAFT,
@@ -89,6 +103,8 @@ class CustomEventRepository:
         if event is None or event.owner_user_id != owner_user_id:
             return None
 
+        before = snapshot_custom_event(event)
+
         if "publish" in fields:
             publish = fields.pop("publish")
             if publish is not None:
@@ -100,6 +116,19 @@ class CustomEventRepository:
             if value is not None and hasattr(event, key):
                 setattr(event, key, value)
 
+        if "lat" in fields or "lng" in fields:
+            event.event_timezone = timezone_at(event.lat, event.lng)
+
+        changed_fields = detect_custom_event_changes(before, event)
+        if changed_fields:
+            if set(changed_fields) & {"date", "time", "title"}:
+                reminder_service.refresh_custom_event_reminders(self._session, event)
+            notify_users_of_event_update(
+                self._session,
+                event=event,
+                changed_fields=changed_fields,
+            )
+
         self._session.commit()
         return self._load_with_owner(event_id)
 
@@ -107,6 +136,11 @@ class CustomEventRepository:
         event = self._session.get(CustomEvent, event_id)
         if event is None or event.owner_user_id != owner_user_id:
             return False
+        cleanup_custom_event_references(
+            self._session,
+            event_id=event.id,
+            event_title=event.title,
+        )
         self._session.delete(event)
         self._session.commit()
         return True

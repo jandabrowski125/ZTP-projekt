@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
@@ -25,6 +25,14 @@ class UserProfileDTO(BaseModel):
     location: str | None = None
     avatar_url: str | None = Field(default=None, alias="avatarUrl")
     preferences: UserPreferencesDTO
+    created_at: datetime = Field(alias="createdAt")
+
+
+class ProfileStatsDTO(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    events_attended: int = Field(alias="eventsAttended", default=0)
+    upcoming: int = 0
 
 
 class TokenResponseDTO(BaseModel):
@@ -38,7 +46,7 @@ class UpdateProfileBody(BaseModel):
     full_name: str | None = Field(default=None, alias="fullName", max_length=200)
     bio: str | None = Field(default=None, max_length=2000)
     location: str | None = Field(default=None, max_length=200)
-    avatar_url: str | None = Field(default=None, alias="avatarUrl", max_length=2048)
+    avatar_url: str | None = Field(default=None, alias="avatarUrl", max_length=512_000)
     preferences: UserPreferencesDTO | None = None
 
     model_config = ConfigDict(populate_by_name=True)

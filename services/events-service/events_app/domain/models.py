@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from enum import StrEnum
 
 
@@ -27,6 +27,7 @@ class Ticket:
     sub: str
     price: str
     hover_color: str
+    url: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,9 +55,16 @@ class Event:
     description: str
     lineup: tuple[LineupArtist, ...]
     tickets: tuple[Ticket, ...]
+    address_line: str = ""
+    postal_code: str = ""
+    ticket_url: str = ""
+    provider: str = ""
+    external_id: str = ""
     is_community_event: bool = False
     created_by: str | None = None
     community_event_id: str | None = None
+    starts_at: datetime | None = None
+    event_timezone: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,16 +1,39 @@
-from typing import Annotated
+from datetime import UTC, datetime
+from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from httpx import HTTPStatusError
 from pydantic import BaseModel, EmailStr, Field
 
+from gateway.clients.events_client import EventsServiceClient
 from gateway.clients.user_client import UserServiceClient
 from gateway.config import settings
-from gateway.dto.users import SavedEventDTO, SaveEventBody, TokenResponseDTO, UpdateProfileBody, UserProfileDTO
-from gateway.dto.events import CustomEventCreateBody, CustomEventResponseDTO, CustomEventUpdateBody
+from gateway.dto.events import (
+    CustomEventCreateBody,
+    CustomEventResponseDTO,
+    CustomEventUpdateBody,
+    EventDataDTO,
+)
+from gateway.dto.user_events import (
+    EventActionStatusDTO,
+    EventRefBody,
+    NotificationsResponseDTO,
+    ReminderBody,
+    SavedEventsListDTO,
+)
+from gateway.dto.users import (
+    ProfileStatsDTO,
+    SavedEventDTO,
+    SaveEventBody,
+    TokenResponseDTO,
+    UpdateProfileBody,
+    UserProfileDTO,
+)
+from gateway.mappers.event_mapper import to_custom_event_dto, to_event_data_dto
+from gateway.mappers.user_events_mapper import to_event_action_status_dto, to_notification_dto
 from gateway.mappers.user_mapper import to_saved_event_dto, to_user_profile_dto, update_body_to_snake
-from gateway.mappers.event_mapper import to_custom_event_dto
+from gateway.services.event_ref_resolver import resolve_event_ref
 
 router = APIRouter(prefix="/api/v1")
 
@@ -20,6 +43,58 @@ def get_user_client() -> UserServiceClient:
         settings.user_service_url,
         internal_token=settings.internal_service_token,
     )
+
+
+def get_events_client() -> EventsServiceClient:
+    return EventsServiceClient(
+        settings.events_service_url,
+        internal_token=settings.internal_service_token,
+    )
+
+
+def _require_auth(authorization: str | None) -> str:
+    if not authorization:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    return authorization
+
+
+async def _saved_rows_to_items(
+    rows: list[dict[str, Any]],
+    events_client: EventsServiceClient,
+) -> list[EventDataDTO]:
+    items: list[EventDataDTO] = []
+    for row in rows:
+        public_id = row.get("public_event_id")
+        if public_id is None:
+            continue
+        try:
+            raw = await events_client.get_event(public_id)
+            items.append(to_event_data_dto(raw))
+        except HTTPStatusError:
+            continue
+    return items
+
+
+def _parse_starts_at(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _count_upcoming_events(items: list[EventDataDTO]) -> int:
+    now = datetime.now(UTC)
+    count = 0
+    for item in items:
+        starts_at = _parse_starts_at(item.starts_at)
+        if starts_at is not None and starts_at > now:
+            count += 1
+    return count
 
 
 class RegisterBody(BaseModel):
@@ -55,6 +130,23 @@ def _token_dto(raw: dict) -> TokenResponseDTO:
         accessToken=raw["access_token"],
         tokenType=raw.get("token_type", "bearer"),
     )
+
+
+@router.post("/auth/firebase", response_model=TokenResponseDTO, response_model_by_alias=True)
+async def firebase_token_exchange(
+    client: Annotated[UserServiceClient, Depends(get_user_client)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> TokenResponseDTO:
+    """Exchange a Firebase ID token for an internal JWT session token."""
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Firebase ID token required in Authorization header",
+        )
+    try:
+        return _token_dto(await client.exchange_firebase_token(authorization))
+    except HTTPStatusError as exc:
+        raise _proxy_error(exc) from exc
 
 
 @router.post("/auth/register", response_model=TokenResponseDTO, response_model_by_alias=True)
@@ -119,16 +211,202 @@ async def update_me(
         raise _proxy_error(exc) from exc
 
 
-@router.get("/users/me/favorites", response_model=list[SavedEventDTO], response_model_by_alias=True)
+@router.get("/users/me/profile-stats", response_model=ProfileStatsDTO, response_model_by_alias=True)
+async def get_profile_stats(
+    client: Annotated[UserServiceClient, Depends(get_user_client)],
+    events_client: Annotated[EventsServiceClient, Depends(get_events_client)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> ProfileStatsDTO:
+    auth = _require_auth(authorization)
+    try:
+        past_rows = await client.list_past_events(auth)
+        enrolled_rows = await client.list_enrolled(auth)
+        enrolled_items = await _saved_rows_to_items(enrolled_rows, events_client)
+        return ProfileStatsDTO(
+            eventsAttended=len(past_rows),
+            upcoming=_count_upcoming_events(enrolled_items),
+        )
+    except HTTPStatusError as exc:
+        raise _proxy_error(exc) from exc
+
+
+@router.get("/users/me/favorites", response_model=SavedEventsListDTO, response_model_by_alias=True)
 async def list_favorites(
     client: Annotated[UserServiceClient, Depends(get_user_client)],
+    events_client: Annotated[EventsServiceClient, Depends(get_events_client)],
     authorization: Annotated[str | None, Header()] = None,
-) -> list[SavedEventDTO]:
-    if not authorization:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+) -> SavedEventsListDTO:
+    auth = _require_auth(authorization)
     try:
-        raw_list = await client.list_favorites(authorization)
-        return [to_saved_event_dto(item) for item in raw_list]
+        raw_list = await client.list_favorites(auth)
+        items = await _saved_rows_to_items(raw_list, events_client)
+        return SavedEventsListDTO(items=items)
+    except HTTPStatusError as exc:
+        raise _proxy_error(exc) from exc
+
+
+@router.put("/users/me/favorites", status_code=status.HTTP_204_NO_CONTENT)
+async def upsert_favorite(
+    body: EventRefBody,
+    client: Annotated[UserServiceClient, Depends(get_user_client)],
+    events_client: Annotated[EventsServiceClient, Depends(get_events_client)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> None:
+    auth = _require_auth(authorization)
+    target = await resolve_event_ref(body, events_client)
+    try:
+        await client.upsert_favorite(auth, target.to_service_dict())
+    except HTTPStatusError as exc:
+        raise _proxy_error(exc) from exc
+
+
+@router.delete("/users/me/favorites", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_favorite_by_ref(
+    body: EventRefBody,
+    client: Annotated[UserServiceClient, Depends(get_user_client)],
+    events_client: Annotated[EventsServiceClient, Depends(get_events_client)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> None:
+    auth = _require_auth(authorization)
+    target = await resolve_event_ref(body, events_client)
+    try:
+        await client.remove_favorite_by_ref(auth, target.to_service_dict())
+    except HTTPStatusError as exc:
+        raise _proxy_error(exc) from exc
+
+
+@router.get("/users/me/event-actions", response_model=EventActionStatusDTO, response_model_by_alias=True)
+async def get_event_action_status(
+    client: Annotated[UserServiceClient, Depends(get_user_client)],
+    events_client: Annotated[EventsServiceClient, Depends(get_events_client)],
+    authorization: Annotated[str | None, Header()] = None,
+    event_id: int = Query(alias="eventId"),
+    community_event_id: str | None = Query(default=None, alias="communityEventId"),
+) -> EventActionStatusDTO:
+    auth = _require_auth(authorization)
+    ref = EventRefBody(eventId=event_id, communityEventId=community_event_id)
+    target = await resolve_event_ref(ref, events_client)
+    try:
+        raw = await client.get_event_action_status(auth, target.to_service_dict())
+        return to_event_action_status_dto(raw)
+    except HTTPStatusError as exc:
+        raise _proxy_error(exc) from exc
+
+
+@router.get("/users/me/enrolled", response_model=SavedEventsListDTO, response_model_by_alias=True)
+async def list_enrolled(
+    client: Annotated[UserServiceClient, Depends(get_user_client)],
+    events_client: Annotated[EventsServiceClient, Depends(get_events_client)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> SavedEventsListDTO:
+    auth = _require_auth(authorization)
+    try:
+        raw_list = await client.list_enrolled(auth)
+        items = await _saved_rows_to_items(raw_list, events_client)
+        return SavedEventsListDTO(items=items)
+    except HTTPStatusError as exc:
+        raise _proxy_error(exc) from exc
+
+
+@router.put("/users/me/enrolled", status_code=status.HTTP_204_NO_CONTENT)
+async def upsert_enrolled(
+    body: EventRefBody,
+    client: Annotated[UserServiceClient, Depends(get_user_client)],
+    events_client: Annotated[EventsServiceClient, Depends(get_events_client)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> None:
+    auth = _require_auth(authorization)
+    target = await resolve_event_ref(body, events_client)
+    try:
+        await client.upsert_enrolled(auth, target.to_service_dict())
+    except HTTPStatusError as exc:
+        raise _proxy_error(exc) from exc
+
+
+@router.delete("/users/me/enrolled", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_enrolled_by_ref(
+    body: EventRefBody,
+    client: Annotated[UserServiceClient, Depends(get_user_client)],
+    events_client: Annotated[EventsServiceClient, Depends(get_events_client)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> None:
+    auth = _require_auth(authorization)
+    target = await resolve_event_ref(body, events_client)
+    try:
+        await client.remove_enrolled_by_ref(auth, target.to_service_dict())
+    except HTTPStatusError as exc:
+        raise _proxy_error(exc) from exc
+
+
+@router.put("/users/me/reminders", status_code=status.HTTP_204_NO_CONTENT)
+async def set_event_reminder(
+    body: ReminderBody,
+    client: Annotated[UserServiceClient, Depends(get_user_client)],
+    events_client: Annotated[EventsServiceClient, Depends(get_events_client)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> None:
+    auth = _require_auth(authorization)
+    ref = EventRefBody(eventId=body.event_id, communityEventId=body.community_event_id)
+    target = await resolve_event_ref(ref, events_client)
+    payload = target.to_service_dict()
+    payload["enabled"] = body.enabled
+    if body.starts_at is not None:
+        payload["starts_at"] = body.starts_at.isoformat()
+    try:
+        await client.set_event_reminder(auth, payload)
+    except HTTPStatusError as exc:
+        raise _proxy_error(exc) from exc
+
+
+@router.get("/users/me/notifications", response_model=NotificationsResponseDTO, response_model_by_alias=True)
+async def list_notifications(
+    client: Annotated[UserServiceClient, Depends(get_user_client)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> NotificationsResponseDTO:
+    auth = _require_auth(authorization)
+    try:
+        raw = await client.list_notifications(auth)
+        return NotificationsResponseDTO(
+            items=[to_notification_dto(item) for item in raw.get("items", [])],
+            unreadCount=int(raw.get("unread_count", 0)),
+        )
+    except HTTPStatusError as exc:
+        raise _proxy_error(exc) from exc
+
+
+@router.patch("/users/me/notifications/{notification_id}/read", status_code=status.HTTP_204_NO_CONTENT)
+async def mark_notification_read(
+    notification_id: UUID,
+    client: Annotated[UserServiceClient, Depends(get_user_client)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> None:
+    auth = _require_auth(authorization)
+    try:
+        await client.mark_notification_read(auth, str(notification_id))
+    except HTTPStatusError as exc:
+        raise _proxy_error(exc) from exc
+
+
+@router.patch("/users/me/notifications/read-all", status_code=status.HTTP_204_NO_CONTENT)
+async def mark_all_notifications_read(
+    client: Annotated[UserServiceClient, Depends(get_user_client)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> None:
+    auth = _require_auth(authorization)
+    try:
+        await client.mark_all_notifications_read(auth)
+    except HTTPStatusError as exc:
+        raise _proxy_error(exc) from exc
+
+
+@router.delete("/users/me/notifications", status_code=status.HTTP_204_NO_CONTENT)
+async def clear_all_notifications(
+    client: Annotated[UserServiceClient, Depends(get_user_client)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> None:
+    auth = _require_auth(authorization)
+    try:
+        await client.clear_all_notifications(auth)
     except HTTPStatusError as exc:
         raise _proxy_error(exc) from exc
 
@@ -239,6 +517,8 @@ async def create_custom_event(
         "description": body.description,
         "venue": body.venue,
         "location": body.location,
+        "address_line": body.address_line,
+        "postal_code": body.postal_code,
         "lat": body.lat,
         "lng": body.lng,
         "category": body.category,
