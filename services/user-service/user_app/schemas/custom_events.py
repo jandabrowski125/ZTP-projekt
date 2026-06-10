@@ -88,6 +88,7 @@ class CustomEventResponse(BaseModel):
     tags: list
     starts_at: datetime
     ends_at: datetime | None
+    event_timezone: str | None = None
     status: str
     lineup: list
     tickets: list

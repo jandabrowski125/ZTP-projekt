@@ -5,6 +5,7 @@ from eventradar_common.internal_auth import InternalServiceAuthMiddleware
 from eventradar_common.production import validate_production_settings
 from eventradar_common.security_headers import SecurityHeadersMiddleware
 from user_app.api.routes import router
+from user_app.api.user_engagement_routes import router as engagement_router
 from user_app.config import settings
 from user_app.db.bootstrap import verify_schema
 
@@ -37,6 +38,7 @@ app.add_middleware(
 )
 
 app.include_router(router)
+app.include_router(engagement_router)
 
 
 @app.get("/health")

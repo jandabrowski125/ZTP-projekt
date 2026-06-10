@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any
 
 from gateway.dto.events import (
@@ -9,6 +10,14 @@ from gateway.dto.events import (
     MapPinDTO,
     TicketDTO,
 )
+
+
+def _iso_datetime(value: object | None) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)
 
 
 def to_event_data_dto(raw: dict[str, Any]) -> EventDataDTO:
@@ -30,6 +39,8 @@ def to_event_data_dto(raw: dict[str, Any]) -> EventDataDTO:
         price=raw["price"],
         image=raw["image"],
         tags=raw["tags"],
+        startsAt=_iso_datetime(raw.get("starts_at")),
+        eventTimezone=raw.get("event_timezone"),
     )
 
 
@@ -111,6 +122,7 @@ def to_custom_event_dto(raw: dict[str, Any]) -> CustomEventResponseDTO:
         tags=raw.get("tags") or [],
         startsAt=str(starts_at) if starts_at is not None else "",
         endsAt=str(ends_at) if ends_at is not None else None,
+        eventTimezone=raw.get("event_timezone"),
         status=raw.get("status", "draft"),
         lineup=raw.get("lineup") or [],
         tickets=raw.get("tickets") or [],

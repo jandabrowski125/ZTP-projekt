@@ -29,6 +29,7 @@ class UserServiceClient:
         path: str,
         *,
         json: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
     ) -> httpx.Response:
         async with httpx.AsyncClient(base_url=self._base_url, timeout=self._timeout) as client:
@@ -36,6 +37,7 @@ class UserServiceClient:
                 method,
                 path,
                 json=json,
+                params=params,
                 headers=self._merge_headers(headers),
             )
 
@@ -163,6 +165,114 @@ class UserServiceClient:
         response = await self._request(
             "DELETE",
             f"/internal/v1/custom-events/{event_id}",
+            headers={"Authorization": authorization},
+        )
+        response.raise_for_status()
+
+    async def get_event_action_status(
+        self,
+        authorization: str,
+        target: dict[str, Any],
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {
+            "publicEventId": target["public_event_id"],
+            "provider": target["provider"],
+            "externalId": target["external_id"],
+        }
+        if target.get("custom_event_id"):
+            params["communityEventId"] = target["custom_event_id"]
+        response = await self._request(
+            "GET",
+            "/internal/v1/users/me/event-actions",
+            params=params,
+            headers={"Authorization": authorization},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    async def upsert_favorite(self, authorization: str, target: dict[str, Any]) -> None:
+        response = await self._request(
+            "PUT",
+            "/internal/v1/users/me/favorites",
+            json=target,
+            headers={"Authorization": authorization},
+        )
+        response.raise_for_status()
+
+    async def remove_favorite_by_ref(self, authorization: str, target: dict[str, Any]) -> None:
+        response = await self._request(
+            "DELETE",
+            "/internal/v1/users/me/favorites",
+            json=target,
+            headers={"Authorization": authorization},
+        )
+        response.raise_for_status()
+
+    async def list_enrolled(self, authorization: str) -> list[dict[str, Any]]:
+        response = await self._request(
+            "GET",
+            "/internal/v1/users/me/enrolled",
+            headers={"Authorization": authorization},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    async def upsert_enrolled(self, authorization: str, target: dict[str, Any]) -> None:
+        response = await self._request(
+            "PUT",
+            "/internal/v1/users/me/enrolled",
+            json=target,
+            headers={"Authorization": authorization},
+        )
+        response.raise_for_status()
+
+    async def remove_enrolled_by_ref(self, authorization: str, target: dict[str, Any]) -> None:
+        response = await self._request(
+            "DELETE",
+            "/internal/v1/users/me/enrolled",
+            json=target,
+            headers={"Authorization": authorization},
+        )
+        response.raise_for_status()
+
+    async def set_event_reminder(self, authorization: str, payload: dict[str, Any]) -> None:
+        response = await self._request(
+            "PUT",
+            "/internal/v1/users/me/reminders",
+            json=payload,
+            headers={"Authorization": authorization},
+        )
+        response.raise_for_status()
+
+    async def list_notifications(self, authorization: str) -> dict[str, Any]:
+        response = await self._request(
+            "GET",
+            "/internal/v1/users/me/notifications",
+            headers={"Authorization": authorization},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    async def mark_notification_read(self, authorization: str, notification_id: str) -> None:
+        response = await self._request(
+            "PATCH",
+            f"/internal/v1/users/me/notifications/{notification_id}/read",
+            headers={"Authorization": authorization},
+        )
+        response.raise_for_status()
+
+    async def mark_all_notifications_read(self, authorization: str) -> None:
+        response = await self._request(
+            "PATCH",
+            "/internal/v1/users/me/notifications/read-all",
+            headers={"Authorization": authorization},
+        )
+        response.raise_for_status()
+
+    async def clear_all_notifications(self, authorization: str) -> None:
+        response = await self._request(
+            "DELETE",
+            "/internal/v1/users/me/notifications",
             headers={"Authorization": authorization},
         )
         response.raise_for_status()

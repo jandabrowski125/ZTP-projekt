@@ -20,6 +20,7 @@ RUN pip install --no-cache-dir \
     "PyJWT>=2.10.0" \
     "google-auth>=2.0.0" \
     "requests>=2.32.0" \
+    "timezonefinder>=6.5.0" \
     "pytest>=8.3.0"
 
 ENV PYTHONPATH=/app/services/user-service:/app/services/common

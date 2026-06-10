@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -58,6 +58,8 @@ class EventSchema(BaseModel):
     is_community_event: bool = False
     created_by: str | None = None
     community_event_id: str | None = None
+    starts_at: datetime | None = None
+    event_timezone: str | None = None
 
 
 class CategorySchema(BaseModel):

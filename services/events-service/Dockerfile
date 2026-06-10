@@ -11,7 +11,8 @@ RUN pip install --no-cache-dir \
     "uvicorn[standard]>=0.32.0" \
     "httpx>=0.28.0" \
     "pydantic>=2.10.0" \
-    "pydantic-settings>=2.6.0"
+    "pydantic-settings>=2.6.0" \
+    "timezonefinder>=6.5.0"
 
 ENV PYTHONPATH=/app/services/events-service:/app/services/common
 ENV EVENTS_SERVICE_HOST=0.0.0.0
